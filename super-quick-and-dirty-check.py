@@ -1,7 +1,32 @@
 import json
 import tensorflow as tf
-from matplotlib import pyplot as plt, patches
+from matplotlib import pyplot as plt, patches, get_backend
 import random
+
+def move_figure(fig, x, y):
+    """
+    move matplotlib figure to x, y pixel on screen
+
+    :param fig: matplotlib figure
+    :param x: int, x location
+    :param y: int, y location
+    :return: nothing
+    """
+
+    # retrieve backend in use by matplotlib
+    backend = get_backend()
+
+    # move figure in the right place
+    if backend == 'TkAgg':
+        fig.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
+
+    elif backend == 'WXAgg':
+        fig.canvas.manager.window.SetPosition((x, y))
+
+    else:
+        # this works for qt and gtk
+        fig.canvas.manager.window.move(x, y)
+
 
 # gpus = tf.config.list_physical_devices('GPU')
 # if gpus: 
@@ -16,9 +41,9 @@ import random
 with open('data/train.json', 'r') as f:
     data = json.load(f)
 
-# check = 'bbox_labels'
+check = 'bbox_labels'
 # check = 'bbox_grid_default'
-check = 'bbox_default'
+# check = 'bbox_default'
 
 for path_image, path_mask, labels in random.sample(data, 10):
     image = tf.io.read_file(path_image)
@@ -26,6 +51,10 @@ for path_image, path_mask, labels in random.sample(data, 10):
     image = tf.cast(image, dtype=tf.float32) / 255.0
 
     if check == 'bbox_labels':
+        # create the plot
+        fig = plt.figure(figsize=(8, 6))
+        move_figure(fig=fig, x=0, y=0)
+
         # display the image
         plt.imshow(image, vmin=0, vmax=1)
         plt.axis('off')
@@ -50,11 +79,14 @@ for path_image, path_mask, labels in random.sample(data, 10):
             rect = patches.Rectangle((xmin, ymin), w, h, linewidth=1, edgecolor=label_code_to_color[label], facecolor='none')
             ax.add_patch(rect)
             plt.text(xmin, ymin, label_code_to_str[label], fontsize=8, color=label_code_to_color[label], verticalalignment='top')
+
+        plt.show()
     
     elif check == 'bbox_grid_default':
         # create subplots and set figure size
         fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3)
-        fig.set_size_inches(30, 10)
+        fig.set_size_inches(20, 7)
+        move_figure(fig=fig, x=0, y=0)
 
         # image subplot
         ax1.imshow(image, vmin=0, vmax=1)
@@ -107,7 +139,8 @@ for path_image, path_mask, labels in random.sample(data, 10):
     elif check == 'bbox_default':
         # create subplots and set figure size
         fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3)
-        fig.set_size_inches(20, 8)
+        fig.set_size_inches(20, 7)    
+        move_figure(fig=fig, x=0, y=0)
 
         # image subplot
         ax1.imshow(image, vmin=0, vmax=1)
