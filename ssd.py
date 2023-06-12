@@ -18,32 +18,44 @@ def get_scale_default_bounding_boxes(k: int, m: int, scale_min: float = 0.2, sca
     return scale_min + (scale_max - scale_min) * (k - 1) / (m - 1) if k <= m else scale_max
 
 
-def generate_default_bounding_boxes(feature_maps_shapes: tuple[tuple[int]], aspect_ratios: tuple[float] = (1.0, 2.0, 3.0, 1/2, 1/3), centers_padding_from_borders: float = 0.5) -> list[np.ndarray]:
+def generate_default_bounding_boxes(
+        feature_maps_shapes: tuple[tuple[int]],
+        feature_maps_aspect_ratios: tuple[float] | tuple[tuple[float]] = (1.0, 2.0, 3.0, 1/2, 1/3),
+        centers_padding_from_borders: float = 0.5,
+        boxes_scales: tuple[float] | tuple[tuple[float]] = (0.2, 0.9),
+        additional_square_box: bool = True
+    ) -> list[np.ndarray]:
     """
     generate default bounding boxes for the given feature maps shapes and aspect ratios
     for each pixel of a feature map, a number of len(aspect_ratios) + 1 default bounding boxes are calculated
 
     Args:
         feature_maps_shapes (tuple[tuple[int]]): a list of shapes for the feature maps on which we want to generate default bounding boxes
-        aspect_ratios (tuple[float]): a list of aspect ratios. Defaults to (1.0, 2.0, 3.0, 1/2, 1/3).
+        aspect_ratios (tuple[float] | tuple[tuple[float]], optional): a list of aspect ratios. Defaults to (1.0, 2.0, 3.0, 1/2, 1/3).
         centers_padding_from_borders (float): padding margin from borders for the centers grid Defaults to 0.5.
+        boxes_scales (tuple[float], optional): minimum and maximum boxes scales. Defaults to (0.2, 0.9).
+        additional_square_box (bool, optional): additional square box proposed by original ssd paper. Defaults to True.
 
     Returns:
         list.[nd.array]: a list of multi-dimensional numpy arrays, with shape (feature_map_shape[0], feature_map_shape[1], len(aspect_ratios) + 1, 4), where the last dimension contains the following values for the bounding box: center_x, center_y, width, height
-    """
+    """    
+    
+    # if feature_maps_aspect_ratios it's simply a tuple[float] then convert it to a tuple[tuple[float]]
+    if all(isinstance(item, float) for item in feature_maps_aspect_ratios):
+        feature_maps_aspect_ratios = tuple(feature_maps_aspect_ratios for _ in range(len(feature_maps_shapes)))
 
     # list to store boxes for each feature map
     feature_maps_boxes = []
 
     # calculate boxes for each feature map
-    for feature_map_index, feature_map_shape in enumerate(feature_maps_shapes):
+    for feature_map_index, (feature_map_shape, aspect_ratios) in enumerate(zip(feature_maps_shapes, feature_maps_aspect_ratios)):
         
         # get the smallest side of the feature map shape
         feature_map_size = min(feature_map_shape)
 
         # get scales for current feature map and the next one
-        scale_current = get_scale_default_bounding_boxes(feature_map_index + 1, m=len(feature_maps_shapes))
-        scale_next = get_scale_default_bounding_boxes(feature_map_index + 2, m=len(feature_maps_shapes))        
+        scale_current = get_scale_default_bounding_boxes(k=feature_map_index + 1, m=len(feature_maps_shapes), scale_min=boxes_scales[0], scale_max=boxes_scales[1])
+        scale_next = get_scale_default_bounding_boxes(k=feature_map_index + 2, m=len(feature_maps_shapes), scale_min=boxes_scales[0], scale_max=boxes_scales[1])
 
         # calculate width and height for each aspect ratio
         # also calculate an additional square box with different scale, as proposed in original ssd paper
@@ -52,7 +64,12 @@ def generate_default_bounding_boxes(feature_maps_shapes: tuple[tuple[int]], aspe
             [feature_map_size * scale_current * math.sqrt(aspect_ratio), feature_map_size * scale_current / math.sqrt(aspect_ratio)]
             for aspect_ratio in aspect_ratios
         ]
-        boxes_width_height.append([feature_map_size * math.sqrt(scale_current * scale_next), feature_map_size * math.sqrt(scale_current * scale_next)])
+
+        # optionally add an additional square box, with a different scale, as proposed by original ssd paper
+        if additional_square_box:
+            boxes_width_height.append([feature_map_size * math.sqrt(scale_current * scale_next), feature_map_size * math.sqrt(scale_current * scale_next)])
+
+        # convert to numpy array
         boxes_width_height = np.array(boxes_width_height)
 
         # calculate centers coordinates for the boxes

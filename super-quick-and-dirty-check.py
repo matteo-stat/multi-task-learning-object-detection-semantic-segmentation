@@ -134,7 +134,12 @@ for path_image, path_mask, labels in random.sample(data, 10):
         import ssd
 
         # generate bounding boxes
-        feature_maps_boxes = ssd.generate_default_bounding_boxes(feature_maps_shapes=feature_maps_shapes)
+        feature_maps_boxes = ssd.generate_default_bounding_boxes(
+            feature_maps_shapes=feature_maps_shapes,
+            feature_maps_aspect_ratios=((1.0, 2.0, 3.0, 1/2, 1/3), (1, 4.0), (1/2, 1/3, 1/4)),
+            boxes_scales=(0.1, 0.7),
+            additional_square_box=False
+        )
 
         # convert to image coordinates and plot
         for boxes, feature_map_shape, color, ax in zip(feature_maps_boxes, feature_maps_shapes, ('red', 'blue', 'green'), (ax1, ax2, ax3)):
