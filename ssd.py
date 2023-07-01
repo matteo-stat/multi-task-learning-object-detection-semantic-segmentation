@@ -1,6 +1,6 @@
-import tensorflow as tf
 import numpy as np
 import math
+from typing import Literal
 
 def get_scale_default_bounding_boxes(k: int, m: int, scale_min: float = 0.2, scale_max: float = 0.9) -> float:
     """
@@ -15,7 +15,7 @@ def get_scale_default_bounding_boxes(k: int, m: int, scale_min: float = 0.2, sca
     Returns:
         float: the scale for the current feature map
     """
-    return scale_min + (scale_max - scale_min) * (k - 1) / (m - 1) if k <= m else scale_max
+    return scale_min + (scale_max - scale_min) * (k - 1) / (m - 1)
 
 
 def generate_default_bounding_boxes(
@@ -23,7 +23,7 @@ def generate_default_bounding_boxes(
         feature_maps_aspect_ratios: tuple[float] | tuple[tuple[float]] = (1.0, 2.0, 3.0, 1/2, 1/3),
         centers_padding_from_borders: float = 0.5,
         boxes_scales: tuple[float] | tuple[tuple[float]] = (0.2, 0.9),
-        additional_square_box: bool = True
+        additional_square_box: bool = True,
     ) -> list[np.ndarray]:
     """
     generate default bounding boxes for the given feature maps shapes and aspect ratios
@@ -37,7 +37,7 @@ def generate_default_bounding_boxes(
         additional_square_box (bool, optional): additional square box proposed by original ssd paper. Defaults to True.
 
     Returns:
-        list.[nd.array]: a list of multi-dimensional numpy arrays, with shape (feature_map_shape[0], feature_map_shape[1], len(aspect_ratios) + 1, 4), where the last dimension contains the following values for the bounding box: center_x, center_y, width, height
+        list.[nd.array]: a list of multi-dimensional numpy arrays, with shape (feature_map_shape[0], feature_map_shape[1], len(aspect_ratios) + 1, 4), where last dimension contains coordinates for the bounding boxes
     """    
     
     # if feature_maps_aspect_ratios it's simply a tuple[float] then convert it to a tuple[tuple[float]]
@@ -74,8 +74,8 @@ def generate_default_bounding_boxes(
 
         # calculate centers coordinates for the boxes
         # there is a center for each pixel in the current feature map
-        boxes_center_x = np.linspace(start=centers_padding_from_borders, stop=feature_map_shape[1] - centers_padding_from_borders, num=feature_map_shape[1])
-        boxes_center_y = np.linspace(start=centers_padding_from_borders, stop=feature_map_shape[0] - centers_padding_from_borders, num=feature_map_shape[0])
+        boxes_center_x = np.linspace(start=centers_padding_from_borders, stop=feature_map_shape[1] - 1 - centers_padding_from_borders, num=feature_map_shape[1])
+        boxes_center_y = np.linspace(start=centers_padding_from_borders, stop=feature_map_shape[0] - 1 - centers_padding_from_borders, num=feature_map_shape[0])
 
         # manipulate the arrays of centers to get outputs of shape (feature_map_shape_y, feature_map_shape_x, 1)
         boxes_center_x, boxes_center_y = np.meshgrid(boxes_center_x, boxes_center_y)
@@ -87,11 +87,11 @@ def generate_default_bounding_boxes(
         boxes = np.zeros((feature_map_shape[0], feature_map_shape[1], len(boxes_width_height), 4))
 
         # populate the output array
-        # assign to the last dimension the 4 values center_x, center_y, width, height
-        boxes[:, :, :, 0] = np.tile(boxes_center_x, (1, 1, len(boxes_width_height)))
-        boxes[:, :, :, 1] = np.tile(boxes_center_y, (1, 1, len(boxes_width_height)))
-        boxes[:, :, :, 2] = boxes_width_height[:, 0]
-        boxes[:, :, :, 3] = boxes_width_height[:, 1]
+        # assign to the last dimension the 4 values x_min, y_min, x_max, y_max (normalized)
+        boxes[:, :, :, 0] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) - (boxes_width_height[:, 0] - 1)/ 2) / feature_map_shape[1]
+        boxes[:, :, :, 1] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) - (boxes_width_height[:, 1] - 1)/ 2) / feature_map_shape[0]
+        boxes[:, :, :, 2] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) + (boxes_width_height[:, 0] - 1)/ 2) / feature_map_shape[1]
+        boxes[:, :, :, 3] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) + (boxes_width_height[:, 1] - 1)/ 2) / feature_map_shape[0]
 
         # append boxes calculated for the current feature map
         feature_maps_boxes.append(boxes)
