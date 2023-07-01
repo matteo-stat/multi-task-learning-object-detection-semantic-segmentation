@@ -56,10 +56,10 @@ for folder in folders:
                 min(y),
                 max(x),
                 max(y),
-                (min(x) + max(x)) / 2,
-                (min(y) + max(y)) / 2,
-                max(x) - min(x),
-                max(y) - min(y),
+                # (min(x) + max(x)) / 2,
+                # (min(y) + max(y)) / 2,
+                # max(x) - min(x) + 1,
+                # max(y) - min(y) + 1,
             ])
 
         # append to data list
