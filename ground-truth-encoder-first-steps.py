@@ -30,11 +30,14 @@ def_boxes = [
     [31, 10, 33, 13],
 ]
 
+# args
+iou_threshold = 0
+
 # default bounding boxes and ground truth bounding boxes
 boxes_default = np.array(def_boxes)
 boxes_ground_truth = np.array(gt_boxes)
 
-# min max coordinates for default an ground truth bounding boxes
+# corners coordinates for default an ground truth bounding boxes
 xmin_boxes_default, ymin_boxes_default, xmax_boxes_default, ymax_boxes_default = np.split(boxes_default, 4, axis=-1)
 xmin_boxes_ground_truth, ymin_boxes_ground_truth, xmax_boxes_ground_truth, ymax_boxes_ground_truth = np.split(boxes_ground_truth, 4, axis=-1)
 
@@ -55,8 +58,25 @@ area_intersection = np.maximum(0, xmax_boxes_intersections - xmin_boxes_intersec
 # area of union between each default bounding box and all ground truth bounding boxes
 area_union = area_boxes_default + area_boxes_ground_truth.T - area_intersection
 
-# calculate intersection over union betwee
+# calculate intersection over union between each default bounding box and all ground truth bounding boxes
+# note that this it's a matrix with shape (num default bounding boxes, num ground truth bounding boxes)
 iou = area_intersection / area_union
+
+# find best match between each ground truth box and all default bounding boxes
+# note that output shape will be (num ground truth boxes with iou > 0 with at least one default box, 2)
+# the last axis contains indexes for default boxes, ground truth boxes
+best_matches_ground_truth_default_boxes = np.column_stack([iou.argmax(axis=0), np.arange(len(boxes_ground_truth))])[iou.max(axis=0) > 0]
+
+# find best match between each default box and all ground truth bounding boxes
+# note that output shape will be (num default truth boxes with iou > threshold with at least one ground truth box, 2)
+# the last axis contains indexes for default boxes, ground truth boxes
+best_matches_default_ground_truth_boxes = np.column_stack([np.arange(len(boxes_default)), iou.argmax(axis=1)])[iou.max(axis=1) > iou_threshold]
+
+# put best matches together, removing possible pair duplicates
+best_matches = np.unique(np.vstack([best_matches_ground_truth_default_boxes, best_matches_default_ground_truth_boxes]), axis=0)
+
+# keep only best matches
+def_boxes = boxes_default[best_matches[:, 0]].tolist()
 
 # create a figure and axis
 fig, ax = plt.subplots()
