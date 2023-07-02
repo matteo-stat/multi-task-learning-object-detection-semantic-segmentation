@@ -97,3 +97,49 @@ def generate_default_bounding_boxes(
         feature_maps_boxes.append(boxes)
 
     return feature_maps_boxes
+
+
+def bounding_boxes_corners_to_centroids(boxes: np.ndarray[np.ndarray]) -> np.ndarray[np.ndarray]:
+    """
+    convert bounding boxes coordinates from corners to centroids
+
+    Args:
+        boxes (np.ndarray[np.ndarray]): boxes with corners coordinates (x_min, y_min, x_max, y_max)
+
+    Returns:
+        np.ndarray[np.ndarray]: boxes with centroids coordinates (center_x, center_y, width, height), same shape as input
+    """
+
+    # prepare output object
+    centroids = np.empty_like(boxes)
+
+    # center x and y
+    centroids[:, [0, 1]] = (boxes[:, [2, 3]] + boxes[:, [0, 1]]) / 2
+
+    # width and height
+    centroids[:, [2, 3]] = boxes[:, [2, 3]] - boxes[:, [0, 1]] + 1
+
+    return centroids
+
+
+def bounding_boxes_centroids_to_corners(boxes: np.ndarray[np.ndarray]) -> np.ndarray[np.ndarray]:
+    """
+    convert bounding boxes coordinates from centroids to corners
+
+    Args:
+        boxes (np.ndarray[np.ndarray]): boxes with centroids coordinates (center_x, center_y, width, height)
+
+    Returns:
+        np.ndarray[np.ndarray]: boxes with corners coordinates (x_min, y_min, x_max, y_max), same shape as input
+    """
+
+    # prepare output boxes object
+    corners = np.empty_like(boxes)
+
+    # center x and y
+    corners[:, [0, 1]] = boxes[:, [0, 1]] - (boxes[:, [2, 3]] - 1) / 2
+
+    # width and height
+    corners[:, [2, 3]] = boxes[:, [0, 1]] + (boxes[:, [2, 3]] - 1) / 2
+    
+    return corners
