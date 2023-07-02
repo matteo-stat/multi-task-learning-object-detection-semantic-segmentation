@@ -37,6 +37,7 @@ for folder in folders:
 
         # labels list for the given image
         labels = []
+        coordinates = []
 
         # convert segmentation polygons to bounding boxes coordinates
         for polygon in polygons['objects']:
@@ -50,23 +51,20 @@ for folder in folders:
 
             # add to labels list in the following order
             # label, x_min, y_min, x_max, y_max, x_center, y_center, width, height
-            labels.append([
-                label_str_to_code[polygon['label']],
+            labels.append(label_str_to_code[polygon['label']])
+            coordinates.append([
                 min(x),
                 min(y),
                 max(x),
                 max(y),
-                # (min(x) + max(x)) / 2,
-                # (min(y) + max(y)) / 2,
-                # max(x) - min(x) + 1,
-                # max(y) - min(y) + 1,
             ])
 
         # append to data list
         data.append([
             f'data/{folder}/{file}',
             f'data/{folder}/{file.replace(".png", "_mask.png")}',
-            labels
+            labels,
+            coordinates
         ])
 
         # move
