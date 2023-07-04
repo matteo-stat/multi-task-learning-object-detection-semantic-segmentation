@@ -88,10 +88,10 @@ def generate_default_bounding_boxes(
 
         # populate the output array
         # assign to the last dimension the 4 values x_min, y_min, x_max, y_max (normalized)
-        boxes[:, :, :, 0] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) - (boxes_width_height[:, 0] - 1)/ 2) / feature_map_shape[1]
-        boxes[:, :, :, 1] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) - (boxes_width_height[:, 1] - 1)/ 2) / feature_map_shape[0]
-        boxes[:, :, :, 2] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) + (boxes_width_height[:, 0] - 1)/ 2) / feature_map_shape[1]
-        boxes[:, :, :, 3] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) + (boxes_width_height[:, 1] - 1)/ 2) / feature_map_shape[0]
+        boxes[:, :, :, 0] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) - boxes_width_height[:, 0] / 2) / (feature_map_shape[1] - 1)
+        boxes[:, :, :, 1] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) - boxes_width_height[:, 1] / 2) / (feature_map_shape[0] - 1)
+        boxes[:, :, :, 2] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) + boxes_width_height[:, 0] / 2) / (feature_map_shape[1] - 1)
+        boxes[:, :, :, 3] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) + boxes_width_height[:, 1] / 2) / (feature_map_shape[0] - 1)
 
         # append boxes calculated for the current feature map
         feature_maps_boxes.append(boxes)
@@ -143,3 +143,4 @@ def bounding_boxes_centroids_to_corners(boxes: np.ndarray[np.ndarray]) -> np.nda
     corners[:, [2, 3]] = boxes[:, [0, 1]] + (boxes[:, [2, 3]] - 1) / 2
     
     return corners
+
