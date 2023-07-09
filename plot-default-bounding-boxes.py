@@ -50,7 +50,7 @@ feature_maps_boxes = ssd.generate_default_bounding_boxes(
     feature_maps_shapes=feature_maps_shapes,
     feature_maps_aspect_ratios=feature_maps_aspect_ratios,
     boxes_scales=(0.1, 0.5),
-    additional_square_box=False
+    additional_square_box=True
 )
 
 # create subplots and set figure size
