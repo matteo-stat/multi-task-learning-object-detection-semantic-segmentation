@@ -1,6 +1,6 @@
 import ssd
 import numpy as np
-from matplotlib import pyplot as plt, colors as pltcolors, get_backend
+from matplotlib import pyplot as plt, colors as pltcolors, patches, get_backend
 from PIL import Image
 
 def move_figure(fig, x, y):
@@ -43,11 +43,12 @@ feature_maps_shapes = (
     (6, 8),
     (3, 4)
 )
+feature_maps_aspect_ratios = ((1.0, 2.0, 3.0, 1/2, 1/3), (1.0, 4.0), (1/2, 1/3, 1/4), (1.0, 2.0, 3.0, 1/2, 1/3))
 
 # default bounding boxes, organized by feature map
 feature_maps_boxes = ssd.generate_default_bounding_boxes(    
     feature_maps_shapes=feature_maps_shapes,
-    feature_maps_aspect_ratios=((1.0, 2.0, 3.0, 1/2, 1/3), (1.0, 4.0), (1/2, 1/3, 1/4), (1.0, 2.0, 3.0, 1/2, 1/3)),
+    feature_maps_aspect_ratios=feature_maps_aspect_ratios,
     boxes_scales=(0.1, 0.5),
     additional_square_box=False
 )
@@ -65,24 +66,27 @@ colors = list(pltcolors.BASE_COLORS.values())[:len(feature_maps_shapes)]
 
 # scale and convert to centroids boxes for each feature map
 i = 0
-for boxes_default, color in zip(feature_maps_boxes, colors):    
-    # reshape to network output shape
-    boxes_default = boxes_default.reshape((-1, boxes_default.shape[-1]))
+for boxes_default, color, feature_map_aspect_ratios in zip(feature_maps_boxes, colors, feature_maps_aspect_ratios):  
+    
+    # extract center boxes
+    center_x, center_y = boxes_default.shape[:2]
+    center_x = center_x // 2
+    center_y = center_y // 2
+    boxes_default = boxes_default[center_x, center_y, :, :]
 
     # scale to image shape
     boxes_default[:, [0, 2]] = boxes_default[:, [0, 2]] * image_shape[1]
     boxes_default[:, [1, 3]] = boxes_default[:, [1, 3]] * image_shape[0]
 
-    # convert to centroids coordinates
-    boxes_default = ssd.bounding_boxes_corners_to_centroids(boxes=boxes_default)
+    # set plot axes limits
+    axes[i].set_xlim(0, image_shape[1])
+    axes[i].set_ylim(0, image_shape[0])
+    axes[i].set_title(f'feature map boxes grid {i}')
 
-    if plot_type == 'boxes grid':        
-        axes[i].set_xlim(0, image_shape[1])
-        axes[i].set_ylim(0, image_shape[0])
-        axes[i].set_title(f'feature map grid {i}')
-        axes[i].scatter(x=boxes_default[:, 0], y=boxes_default[:, 1], color=color, marker='o', s=1)
-
+    # plot boxes
+    for xmin, ymin, xmax, ymax in boxes_default:
+        axes[i].add_patch(patches.Rectangle((xmin, ymin), xmax - xmin + 1, ymax - ymin + 1, linewidth=1, edgecolor=color, facecolor='none'))
+                
     i+=1
 
 plt.show()
-a = 0
