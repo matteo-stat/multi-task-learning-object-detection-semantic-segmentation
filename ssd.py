@@ -1,22 +1,5 @@
 import numpy as np
 import math
-from typing import Literal
-
-def get_scale_default_bounding_boxes(k: int, m: int, scale_min: float = 0.2, scale_max: float = 0.9) -> float:
-    """
-    calculate the scale of the default boxes for a given feature map, as suggested from the original single shot multibox detector paper
-
-    Args:
-        k (int): current feature maps index (starting from 1, not 0)
-        m (int, optional): total number of feature maps . Defaults to 6.
-        scale_min (float, optional): minimum scale for default bounding boxes. Defaults to 0.2.
-        scale_max (float, optional): maximum scale for default bounding boxes. Defaults to 0.9.
-
-    Returns:
-        float: the scale for the current feature map
-    """
-    return scale_min + (scale_max - scale_min) * (k - 1) / (m - 1)
-
 
 def generate_default_bounding_boxes(
         feature_maps_shapes: tuple[tuple[int]],
@@ -47,6 +30,9 @@ def generate_default_bounding_boxes(
     # list to store boxes for each feature map
     feature_maps_boxes = []
 
+    # list of linearly spaced scales for boxes of different feature maps
+    scales = np.linspace(boxes_scales[0], boxes_scales[1], len(feature_maps_shapes) + 1)
+
     # calculate boxes for each feature map
     for feature_map_index, (feature_map_shape, aspect_ratios) in enumerate(zip(feature_maps_shapes, feature_maps_aspect_ratios)):
         
@@ -54,8 +40,8 @@ def generate_default_bounding_boxes(
         feature_map_size = min(feature_map_shape)
 
         # get scales for current feature map and the next one
-        scale_current = get_scale_default_bounding_boxes(k=feature_map_index + 1, m=len(feature_maps_shapes), scale_min=boxes_scales[0], scale_max=boxes_scales[1])
-        scale_next = get_scale_default_bounding_boxes(k=feature_map_index + 2, m=len(feature_maps_shapes), scale_min=boxes_scales[0], scale_max=boxes_scales[1])
+        scale_current = scales[feature_map_index]
+        scale_next = scales[feature_map_index + 1]
 
         # calculate width and height for each aspect ratio
         # also calculate an additional square box with different scale, as proposed in original ssd paper
