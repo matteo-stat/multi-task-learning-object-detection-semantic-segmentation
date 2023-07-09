@@ -2,7 +2,33 @@ import ssd
 import random
 import json
 import numpy as np
-from matplotlib import pyplot as plt, patches
+from PIL import Image
+from matplotlib import pyplot as plt, patches, get_backend
+
+def move_figure(fig, x, y):
+    """
+    move matplotlib figure to x, y pixel on screen
+
+    :param fig: matplotlib figure
+    :param x: int, x location
+    :param y: int, y location
+    :return: nothing
+    """
+
+    # retrieve backend in use by matplotlib
+    backend = get_backend()
+
+    # move figure in the right place
+    if backend == 'TkAgg':
+        fig.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
+
+    elif backend == 'WXAgg':
+        fig.canvas.manager.window.SetPosition((x, y))
+
+    else:
+        # this works for qt and gtk
+        fig.canvas.manager.window.move(x, y)
+
 
 # read training data
 with open('data/train.json', 'r') as f:
@@ -44,9 +70,6 @@ for path_image, path_mask, labels_ground_truth, boxes_ground_truth in random.sam
     # convert to np.array
     labels_ground_truth = np.array(labels_ground_truth)
     boxes_ground_truth = np.array(boxes_ground_truth)
-
-    if len(labels_ground_truth) == 1:
-        continue
     
     # corners coordinates for default an ground truth bounding boxes
     xmin_boxes_default, ymin_boxes_default, xmax_boxes_default, ymax_boxes_default = np.split(boxes_default, 4, axis=-1)
@@ -67,7 +90,7 @@ for path_image, path_mask, labels_ground_truth, boxes_ground_truth in random.sam
     area_boxes_intersection = np.maximum(0, xmax_boxes_intersection - xmin_boxes_intersection + 1) * np.maximum(0, ymax_boxes_intersection - ymin_boxes_intersection + 1)
 
     # calculate intersection over union between each default bounding box and all ground truth bounding boxes
-    # note that this it's a matrix with shape (num default bounding boxes, num ground truth bounding boxes)
+    # note that this is a matrix with shape (num default bounding boxes, num ground truth bounding boxes)
     iou = area_boxes_intersection / (area_boxes_default + area_boxes_ground_truth.T - area_boxes_intersection)
 
     # find best match between each ground truth box and all default bounding boxes
@@ -100,12 +123,20 @@ for path_image, path_mask, labels_ground_truth, boxes_ground_truth in random.sam
     # keep only best matches
     boxes_to_plot = boxes_default[indexes_match[:, 0]].tolist()
 
+    # read the image
+    image = Image.open(path_image)
+
     # create a figure and axis
     fig, ax = plt.subplots()
+    move_figure(fig=fig, x=0, y=0)
+
+    # plot the image
+    ax.imshow(np.array(image))
 
     # set the maximum x and y limits of the plot
     ax.set_xlim([0, image_shape[1]])
-    ax.set_ylim([0, image_shape[0]])
+    ax.set_ylim([image_shape[0], 0])
+    ax.set_title(path_image)
 
     # plot the default boxes
     for box in boxes_to_plot:
@@ -120,4 +151,5 @@ for path_image, path_mask, labels_ground_truth, boxes_ground_truth in random.sam
         ax.add_patch(rect)
 
     # show the plot
-    plt.show()    
+    plt.axis('off')
+    plt.show()
