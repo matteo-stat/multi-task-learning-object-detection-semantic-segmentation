@@ -1,31 +1,7 @@
 import ssd
-import numpy as np
-from matplotlib import pyplot as plt, colors as pltcolors, patches, get_backend
+import plot
+from matplotlib import pyplot as plt, colors as pltcolors
 from PIL import Image
-
-def move_figure(fig, x, y):
-    """
-    move matplotlib figure to x, y pixel on screen
-
-    :param fig: matplotlib figure
-    :param x: int, x location
-    :param y: int, y location
-    :return: nothing
-    """
-
-    # retrieve backend in use by matplotlib
-    backend = get_backend()
-
-    # move figure in the right place
-    if backend == 'TkAgg':
-        fig.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
-
-    elif backend == 'WXAgg':
-        fig.canvas.manager.window.SetPosition((x, y))
-
-    else:
-        # this works for qt and gtk
-        fig.canvas.manager.window.move(x, y)
 
 # plot type
 plot_type = 'boxes grid'
@@ -56,7 +32,7 @@ feature_maps_boxes = ssd.generate_default_bounding_boxes(
 # create subplots and set figure size
 fig, axes = plt.subplots(nrows=fig_rows, ncols=fig_cols, constrained_layout=True)
 fig.set_size_inches(fig_size_width, int(fig_size_width / (image_shape[1] / image_shape[0])))
-move_figure(fig=fig, x=0, y=0)
+plot.move_figure(fig=fig, x=0, y=0)
 
 # set aspect ratio for each subplot
 for ax in axes.flat:

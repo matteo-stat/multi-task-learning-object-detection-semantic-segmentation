@@ -1,32 +1,9 @@
+import plot
 import random
 import json
 import numpy as np
 from matplotlib import pyplot as plt, patches, get_backend
 from PIL import Image
-
-def move_figure(fig, x, y):
-    """
-    move matplotlib figure to x, y pixel on screen
-
-    :param fig: matplotlib figure
-    :param x: int, x location
-    :param y: int, y location
-    :return: nothing
-    """
-
-    # retrieve backend in use by matplotlib
-    backend = get_backend()
-
-    # move figure in the right place
-    if backend == 'TkAgg':
-        fig.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
-
-    elif backend == 'WXAgg':
-        fig.canvas.manager.window.SetPosition((x, y))
-
-    else:
-        # this works for qt and gtk
-        fig.canvas.manager.window.move(x, y)
 
 # labels conversions
 label_code_to_str = {
@@ -54,7 +31,7 @@ for path_image, path_mask, labels, boxes in random.sample(data, k=5):
 
     # create the plot
     fig = plt.figure(figsize=(8, 6))
-    move_figure(fig=fig, x=0, y=0)
+    plot.move_figure(fig=fig, x=0, y=0)
 
     # display the image
     plt.imshow(image, vmin=0, vmax=1)
