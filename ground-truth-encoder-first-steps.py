@@ -36,6 +36,7 @@ boxes_default[:, [1, 3]] = boxes_default[:, [1, 3]] * image_shape[0]
 # args
 iou_threshold = 0.5
 num_classes = 4
+centroids_std = np.array([0.1, 0.1, 0.2, 0.2])
 
 # sample training data
 for path_image, path_mask, labels_ground_truth, boxes_ground_truth in random.sample(data, 5):
@@ -93,8 +94,8 @@ for path_image, path_mask, labels_ground_truth, boxes_ground_truth in random.sam
     # encode data as required (one hot encoding for classes, offsets for centroids coordinates)
     data_encoded = np.zeros(shape=(len(boxes_default), num_classes + 4))
     data_encoded[indexes_match[:,0], :num_classes] = labels_match
-    data_encoded[indexes_match[:,0], -4:-2] = (centroids_ground_truth[:, [0, 1]] - centroids_default[:, [0, 1]]) / centroids_default[:, [2, 3]]
-    data_encoded[indexes_match[:,0], -2:] = np.log(centroids_ground_truth[:, [2, 3]] / centroids_default[:, [2, 3]])
+    data_encoded[indexes_match[:,0], -4:-2] = (centroids_ground_truth[:, [0, 1]] - centroids_default[:, [0, 1]]) / centroids_default[:, [2, 3]] / centroids_std[:2]
+    data_encoded[indexes_match[:,0], -2:] = np.log(centroids_ground_truth[:, [2, 3]] / centroids_default[:, [2, 3]]) / centroids_std[-2:]
 
     # keep only best matches
     boxes_to_plot = boxes_default[indexes_match[:, 0]].tolist()
