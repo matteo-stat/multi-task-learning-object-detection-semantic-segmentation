@@ -1,17 +1,21 @@
 import random
 import json
 import numpy as np
+import tensorflow as tf
 from matplotlib import pyplot as plt
 import ssd
 import plot
 from PIL import Image
 
 # global variables
+INPUT_IMAGE_SIZE = (480, 640)
+SHUFFLE_BUFFER_SIZE = 512
+BATCH_SIZE = 32
 SEED = 1993
 
 # load metadata
-with open('data/train.json', 'r') as f:
-    json_train = json.load(f)
+with open('data/train_path_images_masks.json', 'r') as f:
+    path_images_train, path_masks_train, path_labels_boxes_train = map(list, zip(*json.load(f)))
 
 with open('data/eval.json', 'r') as f:
     json_eval = json.load(f)
@@ -64,13 +68,18 @@ class DataReaderEncoder:
             self,
             path_image: str,
             path_mask: str,
-            labels_ground_truth: list[int],
-            boxes_ground_truth: list[float],
+            path_labels_boxes: str,
         ):
         
-        # convert to numpy array
-        labels_ground_truth = np.array(labels_ground_truth)
-        boxes_ground_truth = np.array(boxes_ground_truth)
+        s = tf.io.read_file(path_labels_boxes)
+
+        # load labels and boxes
+        with open(path_labels_boxes, 'r') as f:
+            labels_boxes_ground_truth = json.load(f)
+        
+        # convert labels and boxes to numpy arrays
+        labels_ground_truth = np.array(labels_boxes_ground_truth['labels'])
+        boxes_ground_truth = np.array(labels_boxes_ground_truth['boxes'])
 
         # corners coordinates for ground truth bounding boxes
         xmin_boxes_ground_truth, ymin_boxes_ground_truth, xmax_boxes_ground_truth, ymax_boxes_ground_truth = np.split(boxes_ground_truth, 4, axis=-1)
@@ -132,7 +141,7 @@ class DataReaderEncoder:
         return image, mask, boxes_encoded
 
 dataReaderEncoder = DataReaderEncoder(
-    image_shape=(480, 640),
+    image_shape=INPUT_IMAGE_SIZE,
     num_classes=4,
     feature_maps_shapes=((24, 32), (12, 16), (6, 8), (3, 4)),
     feature_maps_aspect_ratios=(1.0, 2.0, 3.0, 1/2, 1/3),
@@ -143,15 +152,29 @@ dataReaderEncoder = DataReaderEncoder(
     boxes_centroids_offsets_std=(0.1, 0.1, 0.2, 0.2),
 )
 
+# train dataset
+ds_train = (
+    tf.data.Dataset.from_tensor_slices((path_images_train, path_masks_train, path_labels_boxes_train))
+    .shuffle(buffer_size=SHUFFLE_BUFFER_SIZE)
+    .map(dataReaderEncoder.read_encode_data, num_parallel_calls=tf.data.AUTOTUNE)
+    .batch(batch_size=BATCH_SIZE)
+    #.map(dataAugmentation)
+    .prefetch(buffer_size=tf.data.AUTOTUNE)
+)
+
+
+# check if images are loaded fine
+for image_batch, mask_batch, boxes_encoded_batch in ds_train.take(1):
+    k = 0
+
 # sample training data
-for path_image, path_mask, labels_ground_truth, boxes_ground_truth in random.sample(json_train, k=5):
+for sample in random.sample(range(len(path_images_train)), k=5):
     
     # read and encode data
     image, mask, boxes_encoded = dataReaderEncoder.read_encode_data(
-        path_image=path_image,
-        path_mask=path_mask,
-        labels_ground_truth=labels_ground_truth,
-        boxes_ground_truth=boxes_ground_truth
+        path_image=path_images_train[sample],
+        path_mask=path_masks_train[sample],
+        path_labels_boxes=path_labels_boxes_train[sample],
     )
 
-    k = 0
+    s = 1
