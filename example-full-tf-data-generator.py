@@ -116,16 +116,16 @@ class DataReaderEncoder:
 
         # convert box coordinates from corners to centroids
         centroids_default_center_x, centroids_default_center_y, centroids_default_width, centroids_default_height = self._bounding_boxes_corners_to_centroids(
-            xmin=self.xmin_boxes_default,
-            ymin=self.ymin_boxes_default,
-            xmax=self.xmax_boxes_default,
-            ymax=self.ymax_boxes_default
+            xmin=tf.gather(self.xmin_boxes_default, indexes_match[:, 0]),
+            ymin=tf.gather(self.ymin_boxes_default, indexes_match[:, 0]),
+            xmax=tf.gather(self.xmax_boxes_default, indexes_match[:, 0]),
+            ymax=tf.gather(self.ymax_boxes_default, indexes_match[:, 0]),
         )
         centroids_ground_truth_center_x, centroids_ground_truth_center_y, centroids_ground_truth_width, centroids_ground_truth_height = self._bounding_boxes_corners_to_centroids(
-            xmin=xmin_boxes_ground_truth,
-            ymin=ymin_boxes_ground_truth,
-            xmax=xmax_boxes_ground_truth,
-            ymax=ymax_boxes_ground_truth
+            xmin=tf.gather(xmin_boxes_ground_truth, indexes_match[:, 1]),
+            ymin=tf.gather(ymin_boxes_ground_truth, indexes_match[:, 1]),
+            xmax=tf.gather(xmax_boxes_ground_truth, indexes_match[:, 1]),
+            ymax=tf.gather(ymax_boxes_ground_truth, indexes_match[:, 1]),
         )
 
 
