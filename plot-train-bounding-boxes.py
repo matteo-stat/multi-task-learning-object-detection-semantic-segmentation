@@ -1,4 +1,4 @@
-import plot
+from ssdseglib import plot
 import random
 import json
 import csv

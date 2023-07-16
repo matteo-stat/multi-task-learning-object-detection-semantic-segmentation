@@ -1,6 +1,4 @@
-import ssd
-import plot
-from PIL import Image
+from ssdseglib import ssd, plot
 from matplotlib import pyplot as plt, colors as pltcolors, patches
 
 # input image shape
