@@ -1,4 +1,4 @@
-from ssdseglib import ssd, plot
+from ssdseglib import boxes, plot
 from matplotlib import pyplot as plt, colors as pltcolors, patches
 
 # input image shape
@@ -10,14 +10,14 @@ fig_rows = 2
 fig_cols = 2
 
 # create default bounding boxes
-defaultBoundingBoxes = ssd.DefaultBoundingBoxes(
+default_bounding_boxes = boxes.DefaultBoundingBoxes(
     feature_maps_shapes=((24, 32), (12, 16), (6, 8), (3, 4)),
     feature_maps_aspect_ratios=((1.0, 2.0, 3.0, 1/2, 1/3), (1.0, 4.0), (1/2, 1/3, 1/4), (1.0, 2.0, 3.0, 1/2, 1/3)),
     centers_padding_from_borders=0.5,
     boxes_scales=(0.1, 0.5),
     additional_square_box=True
 )
-feature_maps_boxes = defaultBoundingBoxes.get_feature_maps_boxes()
+feature_maps_boxes = default_bounding_boxes.get_feature_maps_boxes()
 
 # create subplots and set figure size
 fig, axes = plt.subplots(nrows=fig_rows, ncols=fig_cols, constrained_layout=True)
@@ -28,11 +28,11 @@ plot.move_figure(fig=fig, x=0, y=0)
 for ax in axes.flat:
     ax.set_aspect('equal')
 axes = axes.flatten()
-colors = list(pltcolors.BASE_COLORS.values())[:len(defaultBoundingBoxes.feature_maps_shapes)]
+colors = list(pltcolors.BASE_COLORS.values())[:len(default_bounding_boxes.feature_maps_shapes)]
 
 # scale and convert to centroids boxes for each feature map
 i = 0
-for boxes_default, color, feature_map_aspect_ratios in zip(feature_maps_boxes, colors, defaultBoundingBoxes.feature_maps_aspect_ratios):  
+for boxes_default, color, feature_map_aspect_ratios in zip(feature_maps_boxes, colors, default_bounding_boxes.feature_maps_aspect_ratios):  
     
     # extract boxes at the center of the feature map
     feat_map_center_x, feat_map_center_y = boxes_default.shape[:2]
