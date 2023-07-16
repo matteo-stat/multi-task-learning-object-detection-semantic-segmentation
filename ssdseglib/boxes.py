@@ -147,7 +147,7 @@ class DefaultBoundingBoxes:
 
         # scale default bounding boxes coordinates to input image size
         self.boxes[:, [0, 2]] = self.boxes[:, [0, 2]] * image_shape[1]
-        self.boxes[:, [1, 3]] = self.boxes[:, [0, 2]] * image_shape[0]
+        self.boxes[:, [1, 3]] = self.boxes[:, [1, 3]] * image_shape[0]
 
         # set corners coordinates
         self.xmin, self.ymin, self.xmax, self.ymax = np.split(self.boxes, 4, axis=-1)
