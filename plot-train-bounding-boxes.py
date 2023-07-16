@@ -1,32 +1,10 @@
+from ssdseglib import plot
 import random
 import json
+import csv
 import numpy as np
 from matplotlib import pyplot as plt, patches, get_backend
 from PIL import Image
-
-def move_figure(fig, x, y):
-    """
-    move matplotlib figure to x, y pixel on screen
-
-    :param fig: matplotlib figure
-    :param x: int, x location
-    :param y: int, y location
-    :return: nothing
-    """
-
-    # retrieve backend in use by matplotlib
-    backend = get_backend()
-
-    # move figure in the right place
-    if backend == 'TkAgg':
-        fig.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
-
-    elif backend == 'WXAgg':
-        fig.canvas.manager.window.SetPosition((x, y))
-
-    else:
-        # this works for qt and gtk
-        fig.canvas.manager.window.move(x, y)
 
 # labels conversions
 label_code_to_str = {
@@ -45,7 +23,11 @@ with open('data/train.json', 'r') as f:
     data = json.load(f)
 
 # sample training data
-for path_image, path_mask, labels, boxes in random.sample(data, k=5):
+for path_image, path_mask, path_labels_boxes in random.sample(data, k=5):
+
+    # read labels boxes
+    with open(path_labels_boxes, 'r') as f:
+        labels_boxes = list(csv.reader(f))
     
     # read image
     image = Image.open(path_image)
@@ -54,7 +36,7 @@ for path_image, path_mask, labels, boxes in random.sample(data, k=5):
 
     # create the plot
     fig = plt.figure(figsize=(8, 6))
-    move_figure(fig=fig, x=0, y=0)
+    plot.move_figure(fig=fig, x=0, y=0)
 
     # display the image
     plt.imshow(image, vmin=0, vmax=1)
@@ -64,7 +46,12 @@ for path_image, path_mask, labels, boxes in random.sample(data, k=5):
     ax = plt.gca()
 
     # plot bounding boxes
-    for label, (xmin, ymin, xmax, ymax) in zip(labels, boxes):
+    for label, xmin, ymin, xmax, ymax in labels_boxes:
+        label = int(label)
+        xmin = float(xmin)
+        ymin = float(ymin)
+        xmax = float(xmax)
+        ymax = float(ymax)
         rect = patches.Rectangle((xmin, ymin), xmax - xmin + 1, ymax - ymin + 1, linewidth=1, edgecolor=label_code_to_color[label], facecolor='none')
         ax.add_patch(rect)
         plt.text(xmin, ymin, label_code_to_str[label], fontsize=8, color=label_code_to_color[label], verticalalignment='top')

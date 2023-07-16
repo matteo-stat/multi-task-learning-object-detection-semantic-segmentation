@@ -2,6 +2,7 @@ from glob import iglob
 from pathlib import Path
 import os
 import json
+import csv
 
 # define folders to loop through
 folders = ['train', 'eval', 'test']
@@ -36,8 +37,7 @@ for folder in folders:
             polygons = json.load(f)
 
         # labels list for the given image
-        labels = []
-        coordinates = []
+        labels_boxes = []
 
         # convert segmentation polygons to bounding boxes coordinates
         for polygon in polygons['objects']:
@@ -51,21 +51,19 @@ for folder in folders:
 
             # add to labels list in the following order
             # label, x_min, y_min, x_max, y_max, x_center, y_center, width, height
-            labels.append(label_str_to_code[polygon['label']])
-            coordinates.append([
-                min(x),
-                min(y),
-                max(x),
-                max(y),
-            ])
+            labels_boxes.append([label_str_to_code[polygon['label']], min(x), min(y), max(x), max(y)])
 
         # append to data list
         data.append([
             f'data/{folder}/{file}',
             f'data/{folder}/{file.replace(".png", "_mask.png")}',
-            labels,
-            coordinates
+            f'data/{folder}/{file.replace(".png", "_labels_boxes.csv")}'
         ])
+
+        # write labels and boxes
+        with open(f'data/{folder}/{file.replace(".png", "_labels_boxes.csv")}', 'w', newline='') as f:
+            writer = csv.writer(f, delimiter=',')
+            writer.writerows(labels_boxes)        
 
         # move
         os.rename(f'data/images/{folder}/{file}', f'data/{folder}/{file}')

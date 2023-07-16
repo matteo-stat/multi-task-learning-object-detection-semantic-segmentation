@@ -1,78 +1,44 @@
-import ssd
-import numpy as np
-from matplotlib import pyplot as plt, colors as pltcolors, patches, get_backend
-from PIL import Image
+from ssdseglib import boxes, plot
+from matplotlib import pyplot as plt, colors as pltcolors, patches
 
-def move_figure(fig, x, y):
-    """
-    move matplotlib figure to x, y pixel on screen
-
-    :param fig: matplotlib figure
-    :param x: int, x location
-    :param y: int, y location
-    :return: nothing
-    """
-
-    # retrieve backend in use by matplotlib
-    backend = get_backend()
-
-    # move figure in the right place
-    if backend == 'TkAgg':
-        fig.canvas.manager.window.wm_geometry("+%d+%d" % (x, y))
-
-    elif backend == 'WXAgg':
-        fig.canvas.manager.window.SetPosition((x, y))
-
-    else:
-        # this works for qt and gtk
-        fig.canvas.manager.window.move(x, y)
+# input image shape
+image_shape = (480, 640)
 
 # plot type
-plot_type = 'boxes grid'
 fig_size_width = 11
 fig_rows = 2
 fig_cols = 2
 
-# image shape
-image_shape = (480, 640)
-
-# feature maps shapes
-feature_maps_shapes = (
-    (24, 32),
-    (12, 16),
-    (6, 8),
-    (3, 4)
-)
-feature_maps_aspect_ratios = ((1.0, 2.0, 3.0, 1/2, 1/3), (1.0, 4.0), (1/2, 1/3, 1/4), (1.0, 2.0, 3.0, 1/2, 1/3))
-
-# default bounding boxes, organized by feature map
-feature_maps_boxes = ssd.generate_default_bounding_boxes(    
-    feature_maps_shapes=feature_maps_shapes,
-    feature_maps_aspect_ratios=feature_maps_aspect_ratios,
+# create default bounding boxes
+default_bounding_boxes = boxes.DefaultBoundingBoxes(
+    feature_maps_shapes=((24, 32), (12, 16), (6, 8), (3, 4)),
+    feature_maps_aspect_ratios=((1.0, 2.0, 3.0, 1/2, 1/3), (1.0, 4.0), (1/2, 1/3, 1/4), (1.0, 2.0, 3.0, 1/2, 1/3)),
+    centers_padding_from_borders=0.5,
     boxes_scales=(0.1, 0.5),
     additional_square_box=True
 )
+feature_maps_boxes = default_bounding_boxes.get_feature_maps_boxes()
 
 # create subplots and set figure size
 fig, axes = plt.subplots(nrows=fig_rows, ncols=fig_cols, constrained_layout=True)
 fig.set_size_inches(fig_size_width, int(fig_size_width / (image_shape[1] / image_shape[0])))
-move_figure(fig=fig, x=0, y=0)
+plot.move_figure(fig=fig, x=0, y=0)
 
 # set aspect ratio for each subplot
 for ax in axes.flat:
     ax.set_aspect('equal')
 axes = axes.flatten()
-colors = list(pltcolors.BASE_COLORS.values())[:len(feature_maps_shapes)]
+colors = list(pltcolors.BASE_COLORS.values())[:len(default_bounding_boxes.feature_maps_shapes)]
 
 # scale and convert to centroids boxes for each feature map
 i = 0
-for boxes_default, color, feature_map_aspect_ratios in zip(feature_maps_boxes, colors, feature_maps_aspect_ratios):  
+for boxes_default, color, feature_map_aspect_ratios in zip(feature_maps_boxes, colors, default_bounding_boxes.feature_maps_aspect_ratios):  
     
-    # extract center boxes
-    center_x, center_y = boxes_default.shape[:2]
-    center_x = center_x // 2
-    center_y = center_y // 2
-    boxes_default = boxes_default[center_x, center_y, :, :]
+    # extract boxes at the center of the feature map
+    feat_map_center_x, feat_map_center_y = boxes_default.shape[:2]
+    feat_map_center_x = feat_map_center_x // 2
+    feat_map_center_y = feat_map_center_y // 2
+    boxes_default = boxes_default[feat_map_center_x, feat_map_center_y, :, :]
 
     # scale to image shape
     boxes_default[:, [0, 2]] = boxes_default[:, [0, 2]] * image_shape[1]
