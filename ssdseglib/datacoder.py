@@ -1,45 +1,109 @@
 from numpy import ndarray
 import tensorflow as tf
 
-class DataReaderEncoder:
+class DataEncoderDecoder:
     def __init__(
             self,
             num_classes: int,
-            xmin_boxes_default: ndarray[float],
-            ymin_boxes_default: ndarray[float],
-            xmax_boxes_default: ndarray[float],
-            ymax_boxes_default: ndarray[float],
+            xmin_boxes_default: ndarray[float] = None,
+            ymin_boxes_default: ndarray[float] = None,
+            xmax_boxes_default: ndarray[float] = None,
+            ymax_boxes_default: ndarray[float] = None,
+            center_x_boxes_default: ndarray[float] = None,
+            center_y_boxes_default: ndarray[float] = None,
+            width_boxes_default: ndarray[float] = None,
+            height_boxes_default: ndarray[float] = None,            
             iou_threshold: float = 0.5,
-            offsets_std: tuple[float] = (0.1, 0.1, 0.2, 0.2)
+            std_offsets: tuple[float] = (0.1, 0.1, 0.2, 0.2)
         ) -> None:
         """
         class for read and encode data, designed to work with tensorflow data/input pipelines
+        you must pass default bounding boxes corners coordinates, or centroids coordinates, or both
+        (note for me -> probably not very efficient to store both coordinates! think about it in the future..)
 
         Args:
             num_classes (int): number of classes for object detection and segmentation problem, including background
             xmin_boxes_default (ndarray[float]): array of coordinates for xmin (corners coordinates)
             ymin_boxes_default (ndarray[float]): array of coordinates for ymin (corners coordinates)
             xmax_boxes_default (ndarray[float]): array of coordinates for xmax (corners coordinates)
+            
             ymax_boxes_default (ndarray[float]): array of coordinates for ymax (corners coordinates)
+            center_x_boxes_default (ndarray[float]): array of coordinates for center x (centroids coordinates)
+            center_y_boxes_default (ndarray[float]): array of coordinates for center y (centroids coordinates)
+            width_boxes_default (ndarray[float]): array of coordinates for width (centroids coordinates)
+            height_boxes_default (ndarray[float]): array of coordinates for heigh (centroids coordinates)
+
             iou_threshold (float, optional): minimum intersection over union threshold with ground truth boxes to consider a default bounding box not background. Defaults to 0.5.
-            offsets_std (tuple[float], optional): offsets standard deviation between ground truth and default bounding boxes, expected as (offsets_center_x_std, offsets_center_y_std, offsets_width_std, offsets_height_std). Defaults to (0.1, 0.1, 0.2, 0.2).
+            std_offsets (tuple[float], optional): offsets standard deviation between ground truth and default bounding boxes, expected as (std_offsets_center_x, std_offsets_center_y, std_offsets_width, std_offsets_height). Defaults to (0.1, 0.1, 0.2, 0.2).
         """
 
         # set attributes
         self.num_classes = num_classes
         self.iou_threshold = iou_threshold
-        self.offsets_center_x_std, self.offsets_center_y_std, self.offsets_width_std, self.offsets_height_std = offsets_std
-        self.xmin_boxes_default = tf.convert_to_tensor(xmin_boxes_default, dtype=tf.float32)
-        self.ymin_boxes_default = tf.convert_to_tensor(ymin_boxes_default, dtype=tf.float32)
-        self.xmax_boxes_default = tf.convert_to_tensor(xmax_boxes_default, dtype=tf.float32)
-        self.ymax_boxes_default = tf.convert_to_tensor(ymax_boxes_default, dtype=tf.float32)
+        self.std_offsets_center_x, self.std_offsets_center_y, self.std_offsets_width, self.std_offsets_height = std_offsets
+
+        # only corners coordinates in input
+        if all(centroids is None for centroids in (center_x_boxes_default, center_y_boxes_default, width_boxes_default, height_boxes_default)):
+            if any(corners is None for corners in (xmin_boxes_default, ymin_boxes_default, xmax_boxes_default, ymax_boxes_default)):
+                raise ValueError('you must pass all default bounding boxes corners coordinates!')
+            else:
+                # set corners coordinates
+                self.xmin_boxes_default = tf.convert_to_tensor(xmin_boxes_default, dtype=tf.float32)
+                self.ymin_boxes_default = tf.convert_to_tensor(ymin_boxes_default, dtype=tf.float32)
+                self.xmax_boxes_default = tf.convert_to_tensor(xmax_boxes_default, dtype=tf.float32)
+                self.ymax_boxes_default = tf.convert_to_tensor(ymax_boxes_default, dtype=tf.float32)
+
+                # set centroids coordinates
+                self.center_x_boxes_default, self.center_y_boxes_default, self.width_boxes_default, self.height_boxes_default = self._coordinates_corners_to_centroids(
+                    xmin=self.xmin_boxes_default,
+                    ymin=self.ymin_boxes_default,
+                    xmax=self.xmax_boxes_default,
+                    ymax=self.ymax_boxes_default
+                )
+
+        # only centroids coordinates in input
+        elif all(corners is None for corners in (xmin_boxes_default, ymin_boxes_default, xmax_boxes_default, ymax_boxes_default)):
+            if any(centroids is None for centroids in (center_x_boxes_default, center_y_boxes_default, width_boxes_default, height_boxes_default)):
+                raise ValueError('you must pass all default bounding boxes centroids coordinates!')
+            else:
+                # set centroids coordinates
+                self.center_x_boxes_default = tf.convert_to_tensor(center_x_boxes_default, dtype=tf.float32)
+                self.center_y_boxes_default = tf.convert_to_tensor(center_y_boxes_default, dtype=tf.float32)
+                self.width_boxes_default = tf.convert_to_tensor(width_boxes_default, dtype=tf.float32)
+                self.height_boxes_default = tf.convert_to_tensor(height_boxes_default, dtype=tf.float32)
+                
+                # set corners coordinates
+                self.xmin_boxes_default, self.ymin_boxes_default, self.xmax_boxes_default, self.ymax_boxes_default = self._coordinates_centroids_to_corners(
+                    center_x=self.center_x_boxes_default,
+                    center_y=self.center_y_boxes_default,
+                    width=self.width_boxes_default,
+                    height=self.height_boxes_default
+                )
+
+        # both corners and centroids coordinates in input
+        elif (all(corners is None for corners in (xmin_boxes_default, ymin_boxes_default, xmax_boxes_default, ymax_boxes_default)) and
+              all(centroids is None for centroids in (center_x_boxes_default, center_y_boxes_default, width_boxes_default, height_boxes_default))):
+            # set corners coordinates
+            self.xmin_boxes_default = tf.convert_to_tensor(xmin_boxes_default, dtype=tf.float32)
+            self.ymin_boxes_default = tf.convert_to_tensor(ymin_boxes_default, dtype=tf.float32)
+            self.xmax_boxes_default = tf.convert_to_tensor(xmax_boxes_default, dtype=tf.float32)
+            self.ymax_boxes_default = tf.convert_to_tensor(ymax_boxes_default, dtype=tf.float32)
+            
+            # set centroids coordinates
+            self.center_x_boxes_default = tf.convert_to_tensor(center_x_boxes_default, dtype=tf.float32)
+            self.center_y_boxes_default = tf.convert_to_tensor(center_y_boxes_default, dtype=tf.float32)
+            self.width_boxes_default = tf.convert_to_tensor(width_boxes_default, dtype=tf.float32)
+            self.height_boxes_default = tf.convert_to_tensor(height_boxes_default, dtype=tf.float32)            
+            
+        # some corners or centroids missing in input
+        else:
+            raise ValueError('you must pass all default bounding boxes centroids coordinates, or corners coordinates or both!') 
 
         # calculate area for default bounding boxes
         self.area_boxes_default = tf.expand_dims(
             input=(self.ymax_boxes_default - self.ymin_boxes_default + 1.0) * (self.xmax_boxes_default - self.xmin_boxes_default + 1.0),
             axis=1
         )
-
 
     def _coordinates_corners_to_centroids(
             self,
@@ -69,8 +133,7 @@ class DataReaderEncoder:
 
         return center_x, center_y, width, height
 
-
-    def coordinates_centroids_to_corners(
+    def _coordinates_centroids_to_corners(
             self,
             center_x: tf.Tensor,
             center_y: tf.Tensor,
@@ -97,7 +160,6 @@ class DataReaderEncoder:
         ymax = center_y + (height - 1.0) / 2.0
 
         return xmin, ymin, xmax, ymax
-
     
     def _encode_ground_truth_labels_boxes(self, path_labels_boxes: str) -> tf.Tensor:
         """
@@ -109,8 +171,8 @@ class DataReaderEncoder:
         Returns:
             tf.Tensor:
                 encoded data, a tensor with shape (total default boxes, num classes + 4)
-                last axis contains labels one hot encoded and offsets between ground truth and default bounding boxes
-                note that offsets are calculated from centroids coordinates (offset_center_x, offset_center_y, offset_width, offset_height)
+                last axis contains labels one hot encoded and standardized offsets between ground truth and default bounding boxes
+                offsets are expressed as centroids offsets (offsets_center_x, offsets_center_y, offsets_width, offsets_height)
         """
         
         # read labels boxes csv file as text, split text by lines and then decode csv data to tensors
@@ -182,10 +244,10 @@ class DataReaderEncoder:
 
         # calculate centroids offsets between ground truth and default boxes and standardize them
         # for standardization we are assuming that the mean zero and standard deviation given as input
-        offsets_center_x = (centroids_ground_truth_center_x - centroids_default_center_x) / centroids_default_width / self.offsets_center_x_std
-        offsets_center_y = (centroids_ground_truth_center_y - centroids_default_center_y) / centroids_default_height / self.offsets_center_y_std
-        offsets_width = tf.math.log(centroids_ground_truth_width / centroids_default_width) / self.offsets_width_std
-        offsets_height = tf.math.log(centroids_ground_truth_height / centroids_default_height) / self.offsets_height_std
+        offsets_center_x = (centroids_ground_truth_center_x - centroids_default_center_x) / centroids_default_width / self.std_offsets_center_x
+        offsets_center_y = (centroids_ground_truth_center_y - centroids_default_center_y) / centroids_default_height / self.std_offsets_center_y
+        offsets_width = tf.math.log(centroids_ground_truth_width / centroids_default_width) / self.std_offsets_width
+        offsets_height = tf.math.log(centroids_ground_truth_height / centroids_default_height) / self.std_offsets_height
         
         # default bounding boxes encoded as required (one-hot encoding for classes, offsets for centroids coordinates)
         # if a default bounding box was matched with ground truth, then labels and offsets centroids coordinates are calculated
@@ -206,7 +268,6 @@ class DataReaderEncoder:
         )
     
         return boxes_encoded
-
 
     def read_encode(
             self,
@@ -241,3 +302,71 @@ class DataReaderEncoder:
         mask = tf.squeeze(mask, axis=2)
 
         return image, mask, labels_boxes_encoded
+    
+    def decode_to_centroids(
+            self,
+            offsets_center_x: tf.Tensor,
+            offsets_center_y: tf.Tensor,
+            offsets_width: tf.Tensor,
+            offsets_height: tf.Tensor,
+        ) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+        """
+        decode standardized centroids offsets to centroids coordinates
+        offsets means it's assumed equal to zero
+
+        Args:
+            offsets_center_x (tf.Tensor): standardized offsets for center x centroids coordinates
+            offsets_center_y (tf.Tensor): standardized offsets for center y centroids coordinates
+            offsets_width (tf.Tensor): standardized offsets for width centroids coordinates
+            offsets_height (tf.Tensor): standardized offsets for height centroids coordinates
+
+        Returns:
+            tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]: decoded centroids coordinates
+        """
+
+        # decode offsets to centroids coordinates
+        center_x = tf.expand_dims(offsets_center_x * self.std_offsets_center_x, axis=1) * self.width_boxes_default + self.center_x_boxes_default
+        center_y = tf.expand_dims(offsets_center_y * self.std_offsets_center_y, axis=1) * self.height_boxes_default + self.center_y_boxes_default
+        width = tf.expand_dims(tf.math.exp(offsets_width * self.std_offsets_width), axis=1) * self.width_boxes_default
+        height = tf.expand_dims(tf.math.exp(offsets_height * self.std_offsets_height), axis=1) * self.height_boxes_default
+
+        return center_x, center_y, width, height
+
+    def decode_to_corners(
+            self,
+            offsets_center_x: tf.Tensor,
+            offsets_center_y: tf.Tensor,
+            offsets_width: tf.Tensor,
+            offsets_height: tf.Tensor,
+        ) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+        """
+        decode standardized centroids offsets to corners coordinates
+        offsets means it's assumed equal to zero
+
+        Args:
+            offsets_center_x (tf.Tensor): standardized offsets for center x centroids coordinates
+            offsets_center_y (tf.Tensor): standardized offsets for center y centroids coordinates
+            offsets_width (tf.Tensor): standardized offsets for width centroids coordinates
+            offsets_height (tf.Tensor): standardized offsets for height centroids coordinates
+
+        Returns:
+            tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]: decoded corners coordinates
+        """
+
+        # decode offsets to centroids coordinates
+        center_x, center_y, width, height = self.decode_to_centroids(
+            offsets_center_x=offsets_center_x,
+            offsets_center_y=offsets_center_y,
+            offsets_width=offsets_width,
+            offsets_height=offsets_height
+        )
+
+        # convert to corners coordinates
+        xmin, ymin, xmax, ymax = self._coordinates_centroids_to_corners(
+            center_x=center_x,
+            center_y=center_y,
+            width=width,
+            height=height
+        )
+
+        return xmin, ymin, xmax, ymax
