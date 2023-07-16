@@ -141,7 +141,11 @@ class DataReaderEncoder:
         # note that the output shape will be (num default truth boxes with iou > threshold with at least one ground truth box, 2)
         # this matrix-like tensor contains indexes for default boxes, ground truth boxes
         indexes_match_default = tf.stack([tf.range(len(self.xmin_boxes_default)), tf.math.argmax(iou, axis=1, output_type=tf.dtypes.int32)], axis=1)
-        indexes_match_default = tf.boolean_mask(tensor=indexes_match_default, mask=tf.math.greater(tf.reduce_max(iou, axis=1), self.iou_threshold), axis=0)
+        indexes_match_default = tf.boolean_mask(
+            tensor=indexes_match_default,
+            mask=tf.math.greater(tf.reduce_max(iou, axis=1), self.iou_threshold),
+            axis=0
+        )
 
         # step 3 - put all best matches together, removing possible duplicates
         indexes_match, _ = tf.raw_ops.UniqueV2(x=tf.concat([indexes_match_ground_truth, indexes_match_default], axis=0), axis=[0])

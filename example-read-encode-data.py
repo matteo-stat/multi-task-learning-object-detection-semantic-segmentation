@@ -47,6 +47,11 @@ ds_train = (
 )
 
 # check if images are loaded fine
-for image_batch, mask_batch, labels_boxes_encoded in ds_train.take(4):
-    k = 0
+for image_batch, mask_batch, labels_boxes_batch in ds_train.take(1):
+    for image_sample, mask_sample, labels_boxes_sample in zip(image_batch, mask_batch, labels_boxes_batch):
+        labels_boxes_not_background = tf.boolean_mask(
+            tensor=labels_boxes_sample,
+            mask=tf.math.greater(tf.math.reduce_sum(labels_boxes_sample[:, :4], axis=1), 0.0),
+            axis=0
+        )
 
