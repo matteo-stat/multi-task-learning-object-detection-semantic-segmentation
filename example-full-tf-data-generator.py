@@ -25,15 +25,21 @@ boxes_default = ssd.generate_default_bounding_boxes(
 # default bounding boxes, reshaped as output from the network
 boxes_default = np.concatenate([np.reshape(boxes_default, newshape=(-1, 4)) for boxes_default in boxes_default], axis=0)
 
-# default bounding boxes, scaled at image shape
-boxes_default[:, [0, 2]] = boxes_default[:, [0, 2]] * INPUT_IMAGE_SHAPE[1]
-boxes_default[:, [1, 3]] = boxes_default[:, [1, 3]] * INPUT_IMAGE_SHAPE[0]
+# corners coordinates for default bounding boxes, scaled at image shape
+xmin_boxes_default, ymin_boxes_default, xmax_boxes_default, ymax_boxes_default = np.split(boxes_default, 4, axis=-1)
+xmin_boxes_default = xmin_boxes_default.reshape(-1) * INPUT_IMAGE_SHAPE[1]
+ymin_boxes_default = ymin_boxes_default.reshape(-1) * INPUT_IMAGE_SHAPE[0]
+xmax_boxes_default = xmax_boxes_default.reshape(-1) * INPUT_IMAGE_SHAPE[1]
+ymax_boxes_default = ymax_boxes_default.reshape(-1) * INPUT_IMAGE_SHAPE[0]
 
 class DataReaderEncoder:
     def __init__(
             self,
             num_classes: int,
-            boxes_default: np.ndarray,
+            xmin_boxes_default: np.ndarray,
+            yxmin_boxes_default: np.ndarray,
+            xmax_boxes_default: np.ndarray,
+            ymax_boxes_default: np.ndarray,
             iou_threshold: float = 0.5,
             offsets_std: tuple[float] = (0.1, 0.1, 0.2, 0.2)
         ) -> None:
@@ -43,11 +49,10 @@ class DataReaderEncoder:
         self.offsets_center_x_std, self.offsets_center_y_std, self.offsets_width_std, self.offsets_height_std = offsets_std
 
         # corners coordinates for default bounding boxes
-        self.xmin_boxes_default, self.ymin_boxes_default, self.xmax_boxes_default, self.ymax_boxes_default = tf.split(tf.convert_to_tensor(boxes_default, dtype=tf.float32), 4, axis=-1)
-        self.xmin_boxes_default = tf.reshape(self.xmin_boxes_default, shape=(-1))
-        self.ymin_boxes_default = tf.reshape(self.ymin_boxes_default, shape=(-1))
-        self.xmax_boxes_default = tf.reshape(self.xmax_boxes_default, shape=(-1))
-        self.ymax_boxes_default = tf.reshape(self.ymax_boxes_default, shape=(-1))
+        self.xmin_boxes_default = tf.convert_to_tensor(xmin_boxes_default, dtype=tf.float32)
+        self.ymin_boxes_default = tf.convert_to_tensor(ymin_boxes_default, dtype=tf.float32)
+        self.xmax_boxes_default = tf.convert_to_tensor(xmax_boxes_default, dtype=tf.float32)
+        self.ymax_boxes_default = tf.convert_to_tensor(ymax_boxes_default, dtype=tf.float32)
 
         # calculate area for default bounding boxes
         self.area_boxes_default = tf.expand_dims(

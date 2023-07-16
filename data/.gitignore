@@ -1,3 +1,5 @@
 train/*
 test/*
 eval/*
+images/*
+labels/*
