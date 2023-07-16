@@ -12,7 +12,19 @@ class DataReaderEncoder:
             iou_threshold: float = 0.5,
             offsets_std: tuple[float] = (0.1, 0.1, 0.2, 0.2)
         ) -> None:
-        
+        """
+        class for read and encode data, designed to work with tensorflow data/input pipelines
+
+        Args:
+            num_classes (int): number of classes for object detection and segmentation problem, including background
+            xmin_boxes_default (ndarray[float]): array of coordinates for xmin (corners coordinates)
+            ymin_boxes_default (ndarray[float]): array of coordinates for ymin (corners coordinates)
+            xmax_boxes_default (ndarray[float]): array of coordinates for xmax (corners coordinates)
+            ymax_boxes_default (ndarray[float]): array of coordinates for ymax (corners coordinates)
+            iou_threshold (float, optional): minimum intersection over union threshold with ground truth boxes to consider a default bounding box not background. Defaults to 0.5.
+            offsets_std (tuple[float], optional): offsets standard deviation between ground truth and default bounding boxes, expected as (offsets_center_x_std, offsets_center_y_std, offsets_width_std, offsets_height_std). Defaults to (0.1, 0.1, 0.2, 0.2).
+        """
+
         # set attributes
         self.num_classes = num_classes
         self.iou_threshold = iou_threshold
