@@ -48,7 +48,6 @@ class DefaultBoundingBoxes:
         self.width = None
         self.height = None
     
-
     def _generate_feature_maps_boxes(self,
             feature_maps_shapes: tuple[tuple[int]],
             feature_maps_aspect_ratios: tuple[float] | tuple[tuple[float]],
@@ -133,7 +132,6 @@ class DefaultBoundingBoxes:
 
         return feature_maps_boxes
 
-
     def calculate_boxes_coordinates(self, image_shape: tuple[int]) -> None:
         """
         calculate and scale default bounding boxes coordinates
@@ -147,7 +145,7 @@ class DefaultBoundingBoxes:
 
         # scale default bounding boxes coordinates to input image size
         self.boxes[:, [0, 2]] = self.boxes[:, [0, 2]] * image_shape[1]
-        self.boxes[:, [1, 3]] = self.boxes[:, [0, 2]] * image_shape[0]
+        self.boxes[:, [1, 3]] = self.boxes[:, [1, 3]] * image_shape[0]
 
         # set corners coordinates
         self.xmin, self.ymin, self.xmax, self.ymax = np.split(self.boxes, 4, axis=-1)
@@ -162,7 +160,6 @@ class DefaultBoundingBoxes:
         self.width = self.xmax - self.xmin + 1.0
         self.height = self.ymax - self.ymin + 1.0
 
-
     def get_feature_maps_boxes(self) -> list[np.ndarray]:
         """
         simply returns unscaled raw boxes for each feature map
@@ -175,7 +172,6 @@ class DefaultBoundingBoxes:
                 boxes are described in corners coordinates (x_min, y_min, x_max, y_max)
         """
         return self._feature_maps_boxes
-
 
 def boxes_corners_to_centroids(boxes: np.ndarray[np.ndarray]) -> np.ndarray[np.ndarray]:
     """
@@ -199,7 +195,6 @@ def boxes_corners_to_centroids(boxes: np.ndarray[np.ndarray]) -> np.ndarray[np.n
 
     return centroids
 
-
 def boxes_centroids_to_corners(boxes: np.ndarray[np.ndarray]) -> np.ndarray[np.ndarray]:
     """
     convert bounding boxes coordinates from centroids to corners
@@ -221,7 +216,6 @@ def boxes_centroids_to_corners(boxes: np.ndarray[np.ndarray]) -> np.ndarray[np.n
     corners[:, [2, 3]] = boxes[:, [0, 1]] + (boxes[:, [2, 3]] - 1) / 2
     
     return corners
-
 
 def coordinates_corners_to_centroids(
         xmin: np.ndarray[float],
@@ -249,7 +243,6 @@ def coordinates_corners_to_centroids(
     height = ymax - ymin + 1.0
 
     return center_x, center_y, width, height
-
 
 def coordinates_centroids_to_corners(
         center_x: np.ndarray[float],
