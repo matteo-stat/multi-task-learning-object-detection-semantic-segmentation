@@ -246,8 +246,8 @@ class DataEncoderDecoder:
         # for standardization we are assuming that the mean zero and standard deviation given as input
         offsets_center_x = (centroids_ground_truth_center_x - centroids_default_center_x) / centroids_default_width / self.std_offsets_center_x
         offsets_center_y = (centroids_ground_truth_center_y - centroids_default_center_y) / centroids_default_height / self.std_offsets_center_y
-        offsets_width = tf.math.log(centroids_ground_truth_width / centroids_default_width) / self.std_offsets_width
-        offsets_height = tf.math.log(centroids_ground_truth_height / centroids_default_height) / self.std_offsets_height
+        offsets_width = tf.math.log(centroids_ground_truth_width / centroids_default_width + 1.0) / self.std_offsets_width
+        offsets_height = tf.math.log(centroids_ground_truth_height / centroids_default_height + 1.0) / self.std_offsets_height
         
         # default bounding boxes encoded as required (one-hot encoding for classes, offsets for centroids coordinates)
         # if a default bounding box was matched with ground truth, then labels and offsets centroids coordinates are calculated
@@ -261,12 +261,12 @@ class DataEncoderDecoder:
                     labels_match,
                     tf.expand_dims(offsets_center_x, axis=1),
                     tf.expand_dims(offsets_center_y, axis=1),
+                    tf.expand_dims(offsets_width, axis=1),
                     tf.expand_dims(offsets_height, axis=1),
-                    tf.expand_dims(offsets_width, axis=1)
                 ],
                 axis=1)
         )
-    
+
         return boxes_encoded
 
     def read_encode(
@@ -325,10 +325,10 @@ class DataEncoderDecoder:
         """
 
         # decode offsets to centroids coordinates
-        center_x = tf.expand_dims(offsets_center_x * self.std_offsets_center_x, axis=1) * self.width_boxes_default + self.center_x_boxes_default
-        center_y = tf.expand_dims(offsets_center_y * self.std_offsets_center_y, axis=1) * self.height_boxes_default + self.center_y_boxes_default
-        width = tf.expand_dims(tf.math.exp(offsets_width * self.std_offsets_width), axis=1) * self.width_boxes_default
-        height = tf.expand_dims(tf.math.exp(offsets_height * self.std_offsets_height), axis=1) * self.height_boxes_default
+        center_x = offsets_center_x * self.std_offsets_center_x * self.width_boxes_default + self.center_x_boxes_default
+        center_y = offsets_center_y * self.std_offsets_center_y * self.height_boxes_default + self.center_y_boxes_default
+        width = (tf.math.exp(offsets_width * self.std_offsets_width) - 1.0) * self.width_boxes_default
+        height = (tf.math.exp(offsets_height * self.std_offsets_height) - 1.0) * self.height_boxes_default
 
         return center_x, center_y, width, height
 
