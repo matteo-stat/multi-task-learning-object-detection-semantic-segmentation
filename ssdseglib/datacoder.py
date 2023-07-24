@@ -5,6 +5,7 @@ class DataEncoderDecoder:
     def __init__(
             self,
             num_classes: int,
+            image_shape: tuple[int],
             xmin_boxes_default: ndarray[float] = None,
             ymin_boxes_default: ndarray[float] = None,
             xmax_boxes_default: ndarray[float] = None,
@@ -14,7 +15,8 @@ class DataEncoderDecoder:
             width_boxes_default: ndarray[float] = None,
             height_boxes_default: ndarray[float] = None,            
             iou_threshold: float = 0.5,
-            std_offsets: tuple[float] = (0.1, 0.1, 0.2, 0.2)
+            std_offsets: tuple[float] = (0.1, 0.1, 0.2, 0.2),
+            augmentation_horizontal_flip: tuple[bool, float] = (False, 0.5),
         ) -> None:
         """
         class for read and encode data, designed to work with tensorflow data/input pipelines
@@ -23,11 +25,13 @@ class DataEncoderDecoder:
 
         Args:
             num_classes (int): number of classes for object detection and segmentation problem, including background
+            image_shape (tuple[int]): input image shape
+
             xmin_boxes_default (ndarray[float]): array of coordinates for xmin (corners coordinates)
             ymin_boxes_default (ndarray[float]): array of coordinates for ymin (corners coordinates)
             xmax_boxes_default (ndarray[float]): array of coordinates for xmax (corners coordinates)
-            
             ymax_boxes_default (ndarray[float]): array of coordinates for ymax (corners coordinates)
+            
             center_x_boxes_default (ndarray[float]): array of coordinates for center x (centroids coordinates)
             center_y_boxes_default (ndarray[float]): array of coordinates for center y (centroids coordinates)
             width_boxes_default (ndarray[float]): array of coordinates for width (centroids coordinates)
@@ -35,10 +39,13 @@ class DataEncoderDecoder:
 
             iou_threshold (float, optional): minimum intersection over union threshold with ground truth boxes to consider a default bounding box not background. Defaults to 0.5.
             std_offsets (tuple[float], optional): offsets standard deviation between ground truth and default bounding boxes, expected as (std_offsets_center_x, std_offsets_center_y, std_offsets_width, std_offsets_height). Defaults to (0.1, 0.1, 0.2, 0.2).
+
+            augmentation_horizontal_flip (tuple[bool, float], optional): specify if horizontal flip data augmentation should be performed and the transformation probability. Defaults to (False, 0.5).
         """
 
         # set attributes
         self.num_classes = num_classes
+        self.image_height, self.image_width = image_shape
         self.iou_threshold = iou_threshold
         self.std_offsets_center_x, self.std_offsets_center_y, self.std_offsets_width, self.std_offsets_height = std_offsets
 
@@ -105,6 +112,9 @@ class DataEncoderDecoder:
             axis=1
         )
 
+        # augmentation attributes
+        self.augmentation_horizontal_flip, self.augmentation_horizontal_flip_probability = augmentation_horizontal_flip    
+
     def _coordinates_corners_to_centroids(
             self,
             xmin: tf.Tensor,
@@ -161,12 +171,13 @@ class DataEncoderDecoder:
 
         return xmin, ymin, xmax, ymax
     
-    def _encode_ground_truth_labels_boxes(self, path_labels_boxes: str) -> tf.Tensor:
+    def _encode_ground_truth_labels_boxes(self, path_labels_boxes: str, augment_with_horizontal_flip: bool) -> tf.Tensor:
         """
         encode ground truth data as required by a ssd network        
 
         Args:
             path_labels_boxes (str): path and filename for ground truth labels and boxes
+            augment_with_horizontal_flip (bool): True if horizontal flip should be applied to input boxes, otherwise False
 
         Returns:
             tf.Tensor:
@@ -182,6 +193,12 @@ class DataEncoderDecoder:
 
         # create ground truth labels and boxes tensors
         labels_ground_truth, xmin_boxes_ground_truth, ymin_boxes_ground_truth, xmax_boxes_ground_truth, ymax_boxes_ground_truth = labels_boxes
+
+        # augmentation - horizontal flip
+        if augment_with_horizontal_flip:
+            # do it here
+            # be aware of + or -1
+            pass
 
         # calculate area for ground truth bounding boxes
         area_boxes_ground_truth = (xmax_boxes_ground_truth - xmin_boxes_ground_truth + 1.0) * (ymax_boxes_ground_truth - ymin_boxes_ground_truth + 1.0)
@@ -269,6 +286,21 @@ class DataEncoderDecoder:
 
         return boxes_encoded
 
+    def _augmentation_oracle(self, augmentation_active: bool, augmentation_probability: float) -> bool:
+        """
+        randomly decide if augmentation should be applied or not, using an expected probability of augmentation
+
+        Args:
+            augmentation_active (bool): True if random augmentation required, otherwise False
+            augmentation_probability (float): expected probability of augmentation
+
+        Returns:
+            bool: True if augmentation should be applied, otherwise False
+        """
+
+        random_probability = tf.random.uniform(shape=[], minval=0, maxval=1)
+        return True if augmentation_active and tf.less(random_probability, augmentation_probability) else False
+
     def read_encode(
             self,
             path_image: str,
@@ -287,8 +319,12 @@ class DataEncoderDecoder:
             tuple[tf.Tensor, tf.Tensor, tf.Tensor]: a tuple containing image, segmentation mask and encoded labels boxes
         """
 
+        # horizontal random flip
+        # this must determined in advance because the encoding process of the input bounding boxes it's in a separate method
+        augment_with_horizontal_flip = self._augmentation_oracle(self.augmentation_horizontal_flip, self.augmentation_horizontal_flip_probability)
+
         # encode ground truth labels and bounding boxes
-        labels_boxes_encoded = self._encode_ground_truth_labels_boxes(path_labels_boxes=path_labels_boxes)
+        labels_boxes_encoded = self._encode_ground_truth_labels_boxes(path_labels_boxes=path_labels_boxes, augment_with_horizontal_flip=augment_with_horizontal_flip)
 
         # read the image, resize and scale value between 0 and 1
         image = tf.io.read_file(path_image)
@@ -300,6 +336,11 @@ class DataEncoderDecoder:
         mask = tf.image.decode_png(mask, channels=1)
         mask = tf.one_hot(mask, depth=self.num_classes, dtype=tf.float32)
         mask = tf.squeeze(mask, axis=2)
+
+        # augmentation - horizontal flip
+        if augment_with_horizontal_flip:
+            image = tf.image.flip_left_right(image)
+            mask = tf.image.flip_left_right(mask)
 
         return image, mask, labels_boxes_encoded
     
