@@ -16,7 +16,7 @@ class DataEncoderDecoder:
             height_boxes_default: ndarray[float] = None,            
             iou_threshold: float = 0.5,
             std_offsets: tuple[float] = (0.1, 0.1, 0.2, 0.2),
-            augmentation_horizontal_flip: tuple[bool, float] = (False, 0.5),
+            augmentation_horizontal_flip: bool = False,
         ) -> None:
         """
         class for read and encode data, designed to work with tensorflow data/input pipelines
@@ -113,7 +113,7 @@ class DataEncoderDecoder:
         )
 
         # augmentation attributes
-        self.augmentation_horizontal_flip, self.augmentation_horizontal_flip_probability = augmentation_horizontal_flip    
+        self.augmentation_horizontal_flip = augmentation_horizontal_flip
 
     def _coordinates_corners_to_centroids(
             self,
@@ -197,7 +197,7 @@ class DataEncoderDecoder:
         # augmentation - horizontal flip
         if augment_with_horizontal_flip:
             # do it here
-            # be aware of + or -1
+            # for flipping just do image width - x coordinates (tested on paper :D)
             pass
 
         # calculate area for ground truth bounding boxes
@@ -286,22 +286,7 @@ class DataEncoderDecoder:
 
         return boxes_encoded
 
-    def _augmentation_oracle(self, augmentation_active: bool, augmentation_probability: float) -> bool:
-        """
-        randomly decide if augmentation should be applied or not, using an expected probability of augmentation
-
-        Args:
-            augmentation_active (bool): True if random augmentation required, otherwise False
-            augmentation_probability (float): expected probability of augmentation
-
-        Returns:
-            bool: True if augmentation should be applied, otherwise False
-        """
-
-        random_probability = tf.random.uniform(shape=[], minval=0, maxval=1)
-        return True if augmentation_active and tf.less(random_probability, augmentation_probability) else False
-
-    def read_encode(
+    def read_and_encode(
             self,
             path_image: str,
             path_mask: str,
@@ -319,13 +304,6 @@ class DataEncoderDecoder:
             tuple[tf.Tensor, tf.Tensor, tf.Tensor]: a tuple containing image, segmentation mask and encoded labels boxes
         """
 
-        # horizontal random flip
-        # this must determined in advance because the encoding process of the input bounding boxes it's in a separate method
-        augment_with_horizontal_flip = self._augmentation_oracle(self.augmentation_horizontal_flip, self.augmentation_horizontal_flip_probability)
-
-        # encode ground truth labels and bounding boxes
-        labels_boxes_encoded = self._encode_ground_truth_labels_boxes(path_labels_boxes=path_labels_boxes, augment_with_horizontal_flip=augment_with_horizontal_flip)
-
         # read the image, resize and scale value between 0 and 1
         image = tf.io.read_file(path_image)
         image = tf.image.decode_png(image, channels=3)
@@ -336,11 +314,18 @@ class DataEncoderDecoder:
         mask = tf.image.decode_png(mask, channels=1)
         mask = tf.one_hot(mask, depth=self.num_classes, dtype=tf.float32)
         mask = tf.squeeze(mask, axis=2)
+        
+        # horizontal random flip
+        # this must determined in advance because the encoding process of the input bounding boxes it's in a separate method
+        augment_with_horizontal_flip = True if self.augmentation_horizontal_flip and tf.random.uniform(shape=[1], minval=0, maxval=1)[0] >= 0.5 else False
 
         # augmentation - horizontal flip
         if augment_with_horizontal_flip:
             image = tf.image.flip_left_right(image)
-            mask = tf.image.flip_left_right(mask)
+            mask = tf.image.flip_left_right(mask)           
+
+        # encode ground truth labels and bounding boxes, applying horizontal flip if needed
+        labels_boxes_encoded = self._encode_ground_truth_labels_boxes(path_labels_boxes=path_labels_boxes, augment_with_horizontal_flip=augment_with_horizontal_flip)
 
         return image, mask, labels_boxes_encoded
     
@@ -411,3 +396,35 @@ class DataEncoderDecoder:
         )
 
         return xmin, ymin, xmax, ymax
+
+def augmentation_rgb_channels(image_batch: tf.Tensor, mask_batch: tf.Tensor, labels_boxes_batch: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
+    """
+    apply rgb channels augmentation to image batch
+    hue, saturation, contrast and brightness changes are randomly applied within a reasonable range
+    transformed values are clipped between 0 and 1
+
+    Args:
+        image_batch (tf.Tensor): image batch tecnsor
+        mask_batch (tf.Tensor): segmentation mask tensor
+        labels_boxes_batch (tf.Tensor): encoded labels and bounding boxes tensor
+
+    Returns:
+        tuple[tf.Tensor, tf.Tensor, tf.Tensor]: image_batch augmented with rgb channels transformations, mask_batch and labels_boxes_batch are unchanged
+    """
+
+    # small hue change
+    image_batch = tf.image.random_hue(image_batch, max_delta=0.05)
+
+    # small saturation change
+    image_batch = tf.image.random_saturation(image_batch, lower=0.95, upper=1.05) 
+
+    # small contrast change
+    image_batch = tf.image.random_contrast(image_batch, lower=0.90, upper=1.10)
+
+    # small brightness change
+    image_batch = tf.image.random_brightness(image_batch, max_delta=0.10)
+
+    # clip out of range values
+    image_batch = tf.clip_by_value(image_batch, clip_value_min=0.0, clip_value_max=1.0)
+
+    return image_batch, mask_batch, labels_boxes_batch

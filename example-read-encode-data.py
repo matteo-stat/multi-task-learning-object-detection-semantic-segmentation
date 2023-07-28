@@ -42,8 +42,9 @@ res = data_reader_encoder.read_encode(path_images_train[0], path_masks_train[0],
 ds_train = (
     tf.data.Dataset.from_tensor_slices((path_images_train, path_masks_train, path_labels_boxes_train))
     .shuffle(buffer_size=SHUFFLE_BUFFER_SIZE)
-    .map(data_reader_encoder.read_encode, num_parallel_calls=tf.data.AUTOTUNE)
+    .map(data_reader_encoder.read_and_encode, num_parallel_calls=tf.data.AUTOTUNE)
     .batch(batch_size=BATCH_SIZE)
+    .map(ssdseglib.datacoder.augmentation_rgb_channels)
     .prefetch(buffer_size=tf.data.AUTOTUNE)
 )
 
