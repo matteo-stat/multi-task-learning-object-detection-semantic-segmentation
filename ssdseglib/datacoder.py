@@ -196,9 +196,8 @@ class DataEncoderDecoder:
 
         # augmentation - horizontal flip
         if augment_with_horizontal_flip:
-            # do it here
-            # for flipping just do image width - x coordinates (tested on paper :D)
-            pass
+            xmin_boxes_ground_truth = self.image_width - xmin_boxes_ground_truth
+            xmax_boxes_ground_truth = self.image_width - xmax_boxes_ground_truth
 
         # calculate area for ground truth bounding boxes
         area_boxes_ground_truth = (xmax_boxes_ground_truth - xmin_boxes_ground_truth + 1.0) * (ymax_boxes_ground_truth - ymin_boxes_ground_truth + 1.0)
@@ -317,7 +316,7 @@ class DataEncoderDecoder:
         
         # horizontal random flip
         # this must determined in advance because the encoding process of the input bounding boxes it's in a separate method
-        augment_with_horizontal_flip = True if self.augmentation_horizontal_flip and tf.random.uniform(shape=[1], minval=0, maxval=1)[0] >= 0.5 else False
+        augment_with_horizontal_flip = True if self.augmentation_horizontal_flip and tf.random.uniform(shape=[], minval=0, maxval=1) >= 0.5 else False
 
         # augmentation - horizontal flip
         if augment_with_horizontal_flip:
@@ -376,7 +375,7 @@ class DataEncoderDecoder:
             offsets_height (tf.Tensor): standardized offsets for height centroids coordinates
 
         Returns:
-            tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]: decoded corners coordinates
+            tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]: decoded corners coordinates xmin, ymin, xmax, ymax
         """
 
         # decode offsets to centroids coordinates
@@ -424,7 +423,7 @@ def augmentation_rgb_channels(image_batch: tf.Tensor, mask_batch: tf.Tensor, lab
     # small brightness change
     image_batch = tf.image.random_brightness(image_batch, max_delta=0.10)
 
-    # clip out of range values
+    # clip values out of range
     image_batch = tf.clip_by_value(image_batch, clip_value_min=0.0, clip_value_max=1.0)
 
     return image_batch, mask_batch, labels_boxes_batch

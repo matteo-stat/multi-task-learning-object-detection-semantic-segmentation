@@ -28,15 +28,12 @@ data_reader_encoder = ssdseglib.datacoder.DataEncoderDecoder(
     ymax_boxes_default=boxes_default.ymax,
     iou_threshold=0.5,
     std_offsets=(0.1, 0.1, 0.2, 0.2),
-    augmentation_horizontal_flip=(True, 0.5)
+    augmentation_horizontal_flip=True
 )
 
 # load metadata
 with open('data/train.json', 'r') as f:
     path_images_train, path_masks_train, path_labels_boxes_train = map(list, zip(*json.load(f)))
-
-# simple check to test the data reader encoder
-res = data_reader_encoder.read_encode(path_images_train[0], path_masks_train[0], path_labels_boxes_train[0])
 
 # tensorflow train dataset pipeline
 ds_train = (
@@ -51,17 +48,5 @@ ds_train = (
 # check if images are loaded fine
 for image_batch, mask_batch, labels_boxes_batch in ds_train.take(1):
     for image_sample, mask_sample, labels_boxes_sample in zip(image_batch, mask_batch, labels_boxes_batch):
-        labels_boxes_not_background = tf.boolean_mask(
-            tensor=labels_boxes_sample,
-            mask=tf.math.greater(tf.math.reduce_sum(labels_boxes_sample[:, :4], axis=1), 0.0),
-            axis=0
-        )
-        labels = tf.argmax(labels_boxes_not_background[:, :4], axis=1)
-        xmin, ymin, xmax, ymax = data_reader_encoder.decode_to_corners(
-            offsets_center_x=labels_boxes_not_background[:, -4],
-            offsets_center_y=labels_boxes_not_background[:, -3],
-            offsets_width=labels_boxes_not_background[:, -2],
-            offsets_height=labels_boxes_not_background[:, -1]
-        )
         s=0
         
