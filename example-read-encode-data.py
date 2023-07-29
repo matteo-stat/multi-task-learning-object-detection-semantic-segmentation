@@ -21,45 +21,32 @@ boxes_default.calculate_boxes_coordinates(image_shape=INPUT_IMAGE_SHAPE)
 # create a data reader encoder
 data_reader_encoder = ssdseglib.datacoder.DataEncoderDecoder(
     num_classes=4,
+    image_shape=INPUT_IMAGE_SHAPE,
     xmin_boxes_default=boxes_default.xmin,
     ymin_boxes_default=boxes_default.ymin,
     xmax_boxes_default=boxes_default.xmax,
     ymax_boxes_default=boxes_default.ymax,
     iou_threshold=0.5,
     std_offsets=(0.1, 0.1, 0.2, 0.2),
+    augmentation_horizontal_flip=True
 )
 
 # load metadata
 with open('data/train.json', 'r') as f:
     path_images_train, path_masks_train, path_labels_boxes_train = map(list, zip(*json.load(f)))
 
-# simple check to test the data reader encoder
-# res = data_reader_encoder.read_encode(path_images_train[0], path_masks_train[0], path_labels_boxes_train[0])
-
 # tensorflow train dataset pipeline
 ds_train = (
     tf.data.Dataset.from_tensor_slices((path_images_train, path_masks_train, path_labels_boxes_train))
     .shuffle(buffer_size=SHUFFLE_BUFFER_SIZE)
-    .map(data_reader_encoder.read_encode, num_parallel_calls=tf.data.AUTOTUNE)
+    .map(data_reader_encoder.read_and_encode, num_parallel_calls=tf.data.AUTOTUNE)
     .batch(batch_size=BATCH_SIZE)
-    #.map(dataAugmentation)
+    .map(ssdseglib.datacoder.augmentation_rgb_channels)
     .prefetch(buffer_size=tf.data.AUTOTUNE)
 )
 
 # check if images are loaded fine
 for image_batch, mask_batch, labels_boxes_batch in ds_train.take(1):
     for image_sample, mask_sample, labels_boxes_sample in zip(image_batch, mask_batch, labels_boxes_batch):
-        labels_boxes_not_background = tf.boolean_mask(
-            tensor=labels_boxes_sample,
-            mask=tf.math.greater(tf.math.reduce_sum(labels_boxes_sample[:, :4], axis=1), 0.0),
-            axis=0
-        )
-        labels = tf.argmax(labels_boxes_not_background[:, :4], axis=1)
-        xmin, ymin, xmax, ymax = data_reader_encoder.decode_to_corners(
-            offsets_center_x=labels_boxes_not_background[:, -4],
-            offsets_center_y=labels_boxes_not_background[:, -3],
-            offsets_width=labels_boxes_not_background[:, -2],
-            offsets_height=labels_boxes_not_background[:, -1]
-        )
         s=0
         
