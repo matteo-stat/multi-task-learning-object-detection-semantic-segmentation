@@ -41,7 +41,7 @@ ds_train = (
     .shuffle(buffer_size=SHUFFLE_BUFFER_SIZE)
     .map(data_reader_encoder.read_and_encode, num_parallel_calls=tf.data.AUTOTUNE)
     .batch(batch_size=BATCH_SIZE)
-    .map(ssdseglib.datacoder.augmentation_rgb_channels)
+    .map(ssdseglib.datacoder.augmentation_rgb_channels, num_parallel_calls=tf.data.AUTOTUNE)
     .prefetch(buffer_size=tf.data.AUTOTUNE)
 )
 
