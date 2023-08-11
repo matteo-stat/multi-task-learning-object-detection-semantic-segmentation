@@ -12,9 +12,9 @@ fig_cols = 2
 # create default bounding boxes
 default_bounding_boxes = boxes.DefaultBoundingBoxes(
     feature_maps_shapes=((24, 32), (12, 16), (6, 8), (3, 4)),
-    feature_maps_aspect_ratios=((1.0, 2.0, 3.0, 1/2, 1/3), (1.0, 4.0), (1/2, 1/3, 1/4), (1.0, 2.0, 3.0, 1/2, 1/3)),
-    centers_padding_from_borders=0.5,
-    boxes_scales=(0.1, 0.5),
+    feature_maps_aspect_ratios=((1.0, 2.0, 3.0, 1/2, 1/3), (1.0, 4.0), (1/2, 1/3, 1/4), (1/2, 1.0)),
+    centers_padding_from_borders=0,
+    boxes_scales=(0.1, 0.9),
     additional_square_box=True
 )
 feature_maps_boxes = default_bounding_boxes.get_feature_maps_boxes()

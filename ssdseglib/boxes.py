@@ -122,6 +122,7 @@ class DefaultBoundingBoxes:
 
             # populate the output array
             # assign to the last dimension the 4 values x_min, y_min, x_max, y_max (normalized)
+            # note: pixels coordinates should be threated as indexes, be careful with +-1 operations
             boxes[:, :, :, 0] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) - boxes_width_height[:, 0] / 2.0) / (feature_map_shape[1] - 1.0)
             boxes[:, :, :, 1] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) - boxes_width_height[:, 1] / 2.0) / (feature_map_shape[0] - 1.0)
             boxes[:, :, :, 2] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) + boxes_width_height[:, 0] / 2.0) / (feature_map_shape[1] - 1.0)
@@ -184,6 +185,8 @@ def boxes_corners_to_centroids(boxes: np.ndarray[np.ndarray]) -> np.ndarray[np.n
         np.ndarray[np.ndarray]: boxes with centroids coordinates (center_x, center_y, width, height), same shape as input
     """
 
+    # note: pixels coordinates should be threated as indexes, be careful with +-1 operations
+
     # prepare output object
     centroids = np.empty_like(boxes, dtype=np.float32)
 
@@ -206,14 +209,16 @@ def boxes_centroids_to_corners(boxes: np.ndarray[np.ndarray]) -> np.ndarray[np.n
         np.ndarray[np.ndarray]: boxes with corners coordinates (x_min, y_min, x_max, y_max), same shape as input
     """
 
+    # note: pixels coordinates should be threated as indexes, be careful with +-1 operations
+
     # prepare output boxes object
     corners = np.empty_like(boxes)
 
     # xmin, ymin
-    corners[:, [0, 1]] = boxes[:, [0, 1]] - (boxes[:, [2, 3]] - 1) / 2
+    corners[:, [0, 1]] = boxes[:, [0, 1]] - (boxes[:, [2, 3]] - 1.0) / 2.0
 
     # xmax, ymax
-    corners[:, [2, 3]] = boxes[:, [0, 1]] + (boxes[:, [2, 3]] - 1) / 2
+    corners[:, [2, 3]] = boxes[:, [0, 1]] + (boxes[:, [2, 3]] - 1.0) / 2.0
     
     return corners
 
@@ -237,6 +242,7 @@ def coordinates_corners_to_centroids(
     """
 
     # calculate centroids coordinates
+    # note: pixels coordinates should be threated as indexes, be careful with +-1 operations
     center_x = (xmax + xmin) / 2.0
     center_y = (ymax + ymin) / 2.0
     width = xmax - xmin + 1.0
@@ -264,6 +270,7 @@ def coordinates_centroids_to_corners(
     """
 
     # calculate corners coordinates
+    # note: pixels coordinates should be threated as indexes, be careful with +-1 operations
     xmin = center_x - (width - 1.0) / 2.0
     ymin = center_y - (height - 1.0) / 2.0
     xmax = center_x + (width - 1.0) / 2.0

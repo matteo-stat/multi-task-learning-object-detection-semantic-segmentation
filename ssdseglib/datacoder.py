@@ -19,8 +19,8 @@ class DataEncoderDecoder:
             augmentation_horizontal_flip: bool = False,
         ) -> None:
         """
-        class for read and encode data, designed to work with tensorflow data/input pipelines
-        you must pass default bounding boxes corners coordinates, or centroids coordinates, or both
+        class for read and encode data, designed to work with tensorflow data pipelines
+        you must pass default bounding boxes expressed in corners coordinates, or in centroids coordinates, or both
         (note for me -> probably not very efficient to store both coordinates! think about it in the future..)
 
         Args:
@@ -49,7 +49,7 @@ class DataEncoderDecoder:
         self.iou_threshold = iou_threshold
         self.std_offsets_center_x, self.std_offsets_center_y, self.std_offsets_width, self.std_offsets_height = std_offsets
 
-        # only corners coordinates in input
+        # validation - only corners coordinates in input
         if all(centroids is None for centroids in (center_x_boxes_default, center_y_boxes_default, width_boxes_default, height_boxes_default)):
             if any(corners is None for corners in (xmin_boxes_default, ymin_boxes_default, xmax_boxes_default, ymax_boxes_default)):
                 raise ValueError('you must pass all default bounding boxes corners coordinates!')
@@ -68,7 +68,7 @@ class DataEncoderDecoder:
                     ymax=self.ymax_boxes_default
                 )
 
-        # only centroids coordinates in input
+        # validation - only centroids coordinates in input
         elif all(corners is None for corners in (xmin_boxes_default, ymin_boxes_default, xmax_boxes_default, ymax_boxes_default)):
             if any(centroids is None for centroids in (center_x_boxes_default, center_y_boxes_default, width_boxes_default, height_boxes_default)):
                 raise ValueError('you must pass all default bounding boxes centroids coordinates!')
@@ -87,7 +87,7 @@ class DataEncoderDecoder:
                     height=self.height_boxes_default
                 )
 
-        # both corners and centroids coordinates in input
+        # validation - both corners and centroids coordinates in input
         elif (all(corners is None for corners in (xmin_boxes_default, ymin_boxes_default, xmax_boxes_default, ymax_boxes_default)) and
               all(centroids is None for centroids in (center_x_boxes_default, center_y_boxes_default, width_boxes_default, height_boxes_default))):
             # set corners coordinates
@@ -102,7 +102,7 @@ class DataEncoderDecoder:
             self.width_boxes_default = tf.convert_to_tensor(width_boxes_default, dtype=tf.float32)
             self.height_boxes_default = tf.convert_to_tensor(height_boxes_default, dtype=tf.float32)            
             
-        # some corners or centroids missing in input
+        # validation - some corners or centroids missing in input
         else:
             raise ValueError('you must pass all default bounding boxes centroids coordinates, or corners coordinates or both!') 
 
@@ -136,6 +136,7 @@ class DataEncoderDecoder:
         """
 
         # calculate centroids coordinates
+        # note: pixels coordinates should be threated as image indexes, be careful with +-1 operations
         center_x = (xmax + xmin) / 2.0
         center_y = (ymax + ymin) / 2.0
         width = xmax - xmin + 1.0
@@ -164,6 +165,7 @@ class DataEncoderDecoder:
         """
 
         # calculate corners coordinates
+        # note: pixels coordinates should be threated as image indexes, be careful with +-1 operations
         xmin = center_x - (width - 1.0) / 2.0
         ymin = center_y - (height - 1.0) / 2.0
         xmax = center_x + (width - 1.0) / 2.0
@@ -171,19 +173,20 @@ class DataEncoderDecoder:
 
         return xmin, ymin, xmax, ymax
     
-    def _encode_ground_truth_labels_boxes(self, path_labels_boxes: str, augment_with_horizontal_flip: bool) -> tf.Tensor:
+    def _encode_ground_truth_labels_boxes(self, path_labels_boxes: str, augment_with_horizontal_flip: bool) -> tuple[tf.Tensor, tf.Tensor]:
         """
-        encode ground truth data as required by a ssd network        
+        encode ground truth data as required by a single-shot-detector network
+        this means assign labels and calculate standardized offsets for each default bounding boxes
 
         Args:
             path_labels_boxes (str): path and filename for ground truth labels and boxes
-            augment_with_horizontal_flip (bool): True if horizontal flip should be applied to input boxes, otherwise False
+            augment_with_horizontal_flip (bool): pass True if horizontal flip should be applied to input boxes, otherwise False
 
         Returns:
-            tf.Tensor:
-                encoded data, a tensor with shape (total default boxes, num classes + 4)
-                last axis contains labels one hot encoded and standardized offsets between ground truth and default bounding boxes
-                offsets are expressed as centroids offsets (offsets_center_x, offsets_center_y, offsets_width, offsets_height)
+            tuple[tf.Tensor, tf.Tensor]:
+                encoded data, a tuple with two tensor, respectively labels and offsets, with shape (total default boxes, num classes) and (total default boxes, 4)
+                labels are one hot encoded
+                offsets between ground truth and default bounding boxes are expressed as centroids offsets (offsets_center_x, offsets_center_y, offsets_width, offsets_height)
         """
         
         # read labels boxes csv file as text, split text by lines and then decode csv data to tensors
@@ -196,8 +199,7 @@ class DataEncoderDecoder:
 
         # augmentation - horizontal flip
         if augment_with_horizontal_flip:
-            xmin_boxes_ground_truth = self.image_width - xmin_boxes_ground_truth
-            xmax_boxes_ground_truth = self.image_width - xmax_boxes_ground_truth
+            xmin_boxes_ground_truth, xmax_boxes_ground_truth = self.image_width - xmax_boxes_ground_truth, self.image_width - xmin_boxes_ground_truth
 
         # calculate area for ground truth bounding boxes
         area_boxes_ground_truth = (xmax_boxes_ground_truth - xmin_boxes_ground_truth + 1.0) * (ymax_boxes_ground_truth - ymin_boxes_ground_truth + 1.0)
@@ -265,12 +267,12 @@ class DataEncoderDecoder:
         offsets_width = tf.math.log(centroids_ground_truth_width / centroids_default_width + 1.0) / self.std_offsets_width
         offsets_height = tf.math.log(centroids_ground_truth_height / centroids_default_height + 1.0) / self.std_offsets_height
         
-        # default bounding boxes encoded as required (one-hot encoding for classes, offsets for centroids coordinates)
-        # if a default bounding box was matched with ground truth, then labels and offsets centroids coordinates are calculated
-        # otherwise to the default bounding box, background label and zero offsets centroid coordinates are assigned      
-        boxes_encoded = tf.zeros(shape=(len(self.xmin_boxes_default), self.num_classes + 4), dtype=tf.float32)
-        boxes_encoded = tf.tensor_scatter_nd_update(
-            tensor=boxes_encoded,
+        # ground truth data properly encoded
+        # if a default bounding box was matched with ground truth, then proper labels and offsets centroids coordinates are assigned
+        # otherwise background labels and zero offsets centroid coordinates are assigned      
+        ground_truth_encoded = tf.zeros(shape=(len(self.xmin_boxes_default), self.num_classes + 4), dtype=tf.float32)
+        ground_truth_encoded = tf.tensor_scatter_nd_update(
+            tensor=ground_truth_encoded,
             indices=tf.expand_dims(indexes_match[:, 0], axis=1),
             updates=tf.concat(
                 values=[
@@ -283,14 +285,14 @@ class DataEncoderDecoder:
                 axis=1)
         )
 
-        return boxes_encoded
+        return ground_truth_encoded[:, :-4], ground_truth_encoded[:, -4:]
 
     def read_and_encode(
             self,
             path_image: str,
             path_mask: str,
             path_labels_boxes: str,
-        ) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
+        ) -> tuple[tf.Tensor, dict[str, tf.Tensor]]:
         """
         read and encode ground truth data
 
@@ -300,7 +302,11 @@ class DataEncoderDecoder:
             path_labels_boxes (str): path and filename for ground truth labels and boxes
 
         Returns:
-            tuple[tf.Tensor, tf.Tensor, tf.Tensor]: a tuple containing image, segmentation mask and encoded labels boxes
+            tuple[tf.Tensor, dict[str, tf.Tensor]]:
+                a tuple containing data in form of (inputs, targets), as required by .fit method of a tensorflow keras Model class
+                since i'm building a network with multiple outputs (mask for semantic segmentation, classification and regressione for object detection) i need multiple targets
+                it's possible to return multiple targets using a dictionary
+                keep in mind that the targets dictionary keys should match the output layers names in the network, in order to get the proper "y_true" data in the corresponding loss
         """
 
         # read the image, resize and scale value between 0 and 1
@@ -324,9 +330,9 @@ class DataEncoderDecoder:
             mask = tf.image.flip_left_right(mask)           
 
         # encode ground truth labels and bounding boxes, applying horizontal flip if needed
-        labels_boxes_encoded = self._encode_ground_truth_labels_boxes(path_labels_boxes=path_labels_boxes, augment_with_horizontal_flip=augment_with_horizontal_flip)
+        labels, boxes = self._encode_ground_truth_labels_boxes(path_labels_boxes=path_labels_boxes, augment_with_horizontal_flip=augment_with_horizontal_flip)
 
-        return image, mask, labels_boxes_encoded
+        return image, {'mask': mask, 'labels': labels, 'boxes': boxes}
     
     def decode_to_centroids(
             self,
@@ -396,9 +402,9 @@ class DataEncoderDecoder:
 
         return xmin, ymin, xmax, ymax
 
-def augmentation_rgb_channels(image_batch: tf.Tensor, mask_batch: tf.Tensor, labels_boxes_batch: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
+def augmentation_rgb_channels(image_batch: tf.Tensor, targets_batch: dict[str, tf.Tensor]) -> tuple[tf.Tensor, dict[str, tf.Tensor]]:
     """
-    apply rgb channels augmentation to image batch
+    apply rgb channels augmentation to the image batch
     hue, saturation, contrast and brightness changes are randomly applied within a reasonable range
     transformed values are clipped between 0 and 1
 
@@ -408,7 +414,9 @@ def augmentation_rgb_channels(image_batch: tf.Tensor, mask_batch: tf.Tensor, lab
         labels_boxes_batch (tf.Tensor): encoded labels and bounding boxes tensor
 
     Returns:
-        tuple[tf.Tensor, tf.Tensor, tf.Tensor]: image_batch augmented with rgb channels transformations, mask_batch and labels_boxes_batch are unchanged
+        tuple[tf.Tensor, dict[str, tf.Tensor]]: 
+        a tuple containing data in form of (inputs, targets)
+        inputs it's the image_batch augmented with rgb channels transformations, targets it's the targets_batch unchanged
     """
 
     # small hue change
@@ -426,4 +434,4 @@ def augmentation_rgb_channels(image_batch: tf.Tensor, mask_batch: tf.Tensor, lab
     # clip values out of range
     image_batch = tf.clip_by_value(image_batch, clip_value_min=0.0, clip_value_max=1.0)
 
-    return image_batch, mask_batch, labels_boxes_batch
+    return image_batch, targets_batch
