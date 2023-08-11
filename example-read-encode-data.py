@@ -46,7 +46,7 @@ ds_train = (
 )
 
 # check if images are loaded fine
-for image_batch, mask_batch, labels_boxes_batch in ds_train.take(1):
-    for image_sample, mask_sample, labels_boxes_sample in zip(image_batch, mask_batch, labels_boxes_batch):
+for image_batch, targets_batch in ds_train.take(1):
+    for image_sample, mask_sample, labels_sample, boxes_sample in zip(image_batch, targets_batch['mask'], targets_batch['labels'], targets_batch['boxes']):
         s=0
         

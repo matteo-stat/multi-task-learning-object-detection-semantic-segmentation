@@ -36,15 +36,18 @@ with open('data/train.json', 'r') as f:
     path_images_train, path_masks_train, path_labels_boxes_train = map(list, zip(*json.load(f)))
 
 # read and encode data
-image, mask, labels_boxes = data_reader_encoder.read_and_encode(path_images_train[0], path_masks_train[0], path_labels_boxes_train[0])
+image, targets = data_reader_encoder.read_and_encode(path_images_train[0], path_masks_train[0], path_labels_boxes_train[0])
 
 # decode data
 # this should return the original bounding boxes coordinates if there were default bounding boxes overlapped
-decoded = data_reader_encoder.decode_to_corners(labels_boxes[:, -4], labels_boxes[:, -3], labels_boxes[:, -2], labels_boxes[:, -1])
+decoded = data_reader_encoder.decode_to_corners(targets['boxes'][:, -4], targets['boxes'][:, -3], targets['boxes'][:, -2], targets['boxes'][:, -1])
 
 # keep only decoded default bounding boxes that were not background
 decoded_not_background = tf.boolean_mask(
     tensor=tf.stack(decoded, axis=1),
-    mask=tf.math.greater(tf.math.reduce_sum(labels_boxes[:, :4], axis=1), 0.0),
+    mask=tf.math.greater(tf.math.reduce_sum(targets['labels'], axis=1), 0.0),
     axis=0
 )
+
+# or maybe decode better in the method directly using the labels?
+tf.expand_dims(tf.math.reduce_sum(targets['labels'], axis=1), axis=-1) * tf.stack(decoded, axis=1)
