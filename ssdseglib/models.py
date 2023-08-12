@@ -71,5 +71,41 @@ layer, counter_blocks = mobilenetv2_block_sequence(layer_last=layer, expansion_f
 layer, counter_blocks = mobilenetv2_block_sequence(layer_last=layer, expansion_factor=6, channels_output=160, n_repeat=3, strides=2, counter_blocks=counter_blocks)
 layer, counter_blocks = mobilenetv2_block_sequence(layer_last=layer, expansion_factor=6, channels_output=320, n_repeat=1, strides=1, counter_blocks=counter_blocks)
 
+
+# ssdlite (object detection)
+# simply replace standard convolution operations with depthwise separable convolution
+# mobilenetv2 paper suggest to connect first ssd layer to the expansion block with output stride = 16 (30x40, block13_expand_relu6)
+# the rest of ssd layer are connected on top of the last layer with output stride = 32 (15x20)
+
+# deeplabv3 (semantic segmentation)
+# mobilenetv2 paper says that deeplabv3 builds 5 parallel heads
+# aspp, atrous spatial pyramid pooling, containing 3 convolutions with 3x3 kernel and different atrous rates
+# 1 convolution with 1x1
+# 1 image level features
+
+# model
 model = tf.keras.Model(inputs=layer_last, outputs=layer)
 model.summary()
+
+# deeplabv3 snippet
+layer_input = layer
+dims = layer_input.shape
+
+# image features (global average pooling + upsampling)
+x = tf.keras.layers.GlobalAveragePooling2D()(layer_input)
+x = tf.keras.layers.Conv2D(filters=256, kernel_size=1, use_bias=False, padding='same')(x) # + batchnorm + relu
+out_pool = tf.keras.layers.UpSampling2D(size=(dims[-3] // x.shape[1], dims[-2] // x.shape[2]), interpolation="bilinear")(x)
+
+# aspp
+out_aspp1 = tf.keras.layers.Conv2D(filters=256, kernel_size=1, padding='same', use_bias=False, dilation_rate=1)(layer_input) # + batchnorm + relu
+out_aspp2 = tf.keras.layers.Conv2D(filters=256, kernel_size=3, padding='same', use_bias=False, dilation_rate=6)(layer_input) # + batchnorm + relu
+out_aspp3 = tf.keras.layers.Conv2D(filters=256, kernel_size=3, padding='same', use_bias=False, dilation_rate=12)(layer_input) # + batchnorm + relu
+out_aspp4 = tf.keras.layers.Conv2D(filters=256, kernel_size=3, padding='same', use_bias=False, dilation_rate=18)(layer_input) # + batchnorm + relu
+
+# concatenate
+concat = tf.keras.layers.Concatenate(axis=-1)([out_pool, out_aspp1, out_aspp2, out_aspp3, out_aspp4])
+
+# output
+out_deeplab = tf.keras.layers.Conv2D(filters=256, kernel_size=1, padding='same', use_bias=False)(concat) # + batchnorm + relu
+
+# upsample to desired resolution..
