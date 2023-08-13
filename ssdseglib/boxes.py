@@ -46,7 +46,7 @@ class DefaultBoundingBoxes:
         self._feature_maps_boxes = self._generate_feature_maps_boxes()
         
         # this is used to store indexes of the coordinates
-        self._coordinates_indexes = {'xmin': 0, 'ymin': 1, 'xmax': 2, 'ymax': 3, 'center-x': 0, 'center-y': 1, 'width': 2, 'height': 2}
+        self._coordinates_indexes = {'xmin': 0, 'ymin': 1, 'xmax': 2, 'ymax': 3, 'center-x': 0, 'center-y': 1, 'width': 2, 'height': 3}
     
     def _generate_feature_maps_boxes(self) -> list[np.ndarray]:
         """
