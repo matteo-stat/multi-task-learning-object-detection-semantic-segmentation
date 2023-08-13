@@ -104,12 +104,12 @@ class DefaultBoundingBoxes:
             boxes = np.zeros((feature_map_shape[0], feature_map_shape[1], len(boxes_width_height), 4), dtype=np.float32)
 
             # populate the output array
-            # assign to the last dimension the 4 values x_min, y_min, x_max, y_max (normalized)
+            # assign to the last dimension the 4 values xmin, ymin, xmax, ymax (normalized between 0 and 1)
             # note: pixels coordinates should be threated as indexes, be careful with +-1 operations
-            boxes[:, :, :, 0] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) - boxes_width_height[:, 0] / 2.0) / (feature_map_shape[1] - 1.0)
-            boxes[:, :, :, 1] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) - boxes_width_height[:, 1] / 2.0) / (feature_map_shape[0] - 1.0)
-            boxes[:, :, :, 2] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) + boxes_width_height[:, 0] / 2.0) / (feature_map_shape[1] - 1.0)
-            boxes[:, :, :, 3] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) + boxes_width_height[:, 1] / 2.0) / (feature_map_shape[0] - 1.0)
+            boxes[:, :, :, self._coordinates_indexes['xmin']] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) - boxes_width_height[:, 0] / 2.0) / (feature_map_shape[1] - 1.0)
+            boxes[:, :, :, self._coordinates_indexes['ymin']] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) - boxes_width_height[:, 1] / 2.0) / (feature_map_shape[0] - 1.0)
+            boxes[:, :, :, self._coordinates_indexes['xmax']] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) + boxes_width_height[:, 0] / 2.0) / (feature_map_shape[1] - 1.0)
+            boxes[:, :, :, self._coordinates_indexes['ymax']] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) + boxes_width_height[:, 1] / 2.0) / (feature_map_shape[0] - 1.0)
 
             # append boxes calculated for the feature map
             feature_maps_boxes.append(boxes)
@@ -130,16 +130,55 @@ class DefaultBoundingBoxes:
         # rescale the coordinates of the default bounding boxes for each feature map
         for feature_map_boxes in self._feature_maps_boxes:
             # scale width
-            feature_map_boxes[:, [0, 2]] = feature_map_boxes[:, [0, 2]] * image_shape[1]
+            feature_map_boxes[:, [self._coordinates_indexes['xmin'], self._coordinates_indexes['xmax']]] = feature_map_boxes[:, [self._coordinates_indexes['xmin'], self._coordinates_indexes['xmax']]] * image_shape[1]
 
             # scale height
-            feature_map_boxes[:, [1, 3]] = feature_map_boxes[:, [1, 3]] * image_shape[0]
+            feature_map_boxes[:, [self._coordinates_indexes['ymin'], self._coordinates_indexes['ymax']]] = feature_map_boxes[:, [self._coordinates_indexes['ymin'], self._coordinates_indexes['ymax']]] * image_shape[0]
 
             # append to the default bounding boxes attribute
             self.feature_maps_boxes.append(feature_map_boxes)
 
-    def _get_coordinates(coordinate: Literal['xmin', 'ymin', 'xmax', 'ymax', 'center-x', 'center-y', 'width', 'height']):
-        pass        
+    def _get_boxes_coordinates(self, coordinates_style: Literal['ssd', 'feature-maps'], coordinates_type: Literal['corners', 'xmin', 'ymin', 'xmax', 'ymax', 'centroids', 'center-x', 'center-y', 'width', 'height',]):
+        
+        if coordinates_type == 'corners' and coordinates_style == 'feature-maps':
+            coordinates = self.feature_maps_boxes
+
+        elif coordinates_type == 'corners' and coordinates_style == 'ssd':
+            coordinates = np.concatenate([np.reshape(feature_map_boxes, newshape=(-1, 4)) for feature_map_boxes in self.feature_maps_boxes], axis=0)
+
+        elif coordinates_type == 'centroids' and coordinates_style == 'feature-maps':
+            coordinates = []
+            for feature_map_boxes in self.feature_maps_boxes:
+                # prepare output object
+                centroids = np.empty_like(feature_map_boxes, dtype=np.float32)
+
+                # center x and y
+                centroids[:, [0, 1]] = (feature_map_boxes[:, [2, 3]] + feature_map_boxes[:, [0, 1]]) / 2.0
+
+                # width and height
+                centroids[:, [2, 3]] = feature_map_boxes[:, [2, 3]] - feature_map_boxes[:, [0, 1]] + 1.0
+                
+                coordinates.append(centroids)
+
+        elif coordinates_type == 'centroids' and coordinates_style == 'ssd':
+            corners = np.concatenate([np.reshape(feature_map_boxes, newshape=(-1, 4)) for feature_map_boxes in self.feature_maps_boxes], axis=0)
+            # prepare output object
+            centroids = np.empty_like(corners, dtype=np.float32)
+
+            # center x and y
+            centroids[:, [0, 1]] = (corners[:, [2, 3]] + corners[:, [0, 1]]) / 2.0
+
+            # width and height
+            centroids[:, [2, 3]] = corners[:, [2, 3]] - corners[:, [0, 1]] + 1.0          
+            
+        elif coordinates_type == 'corners':
+            pass
+
+        elif coordinates_type == 'centroids':
+            pass
+
+        return coordinates
+ 
 
         
 
@@ -211,3 +250,5 @@ def coordinates_centroids_to_corners(
     ymax = center_y + (height - 1.0) / 2.0
 
     return xmin, ymin, xmax, ymax
+
+
