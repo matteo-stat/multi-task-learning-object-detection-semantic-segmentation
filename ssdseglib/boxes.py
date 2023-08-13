@@ -1,89 +1,72 @@
 import numpy as np
 import math
+from typing import Literal
 
 class DefaultBoundingBoxes:
     def __init__(self,
-            feature_maps_shapes: tuple[tuple[int]],
-            feature_maps_aspect_ratios: tuple[float] | tuple[tuple[float]] = (1.0, 2.0, 3.0, 1/2, 1/3),
+            feature_maps_shapes: tuple[tuple[int, int], ...],
+            feature_maps_aspect_ratios: tuple[float | int, ...] | tuple[tuple[float | int, ...], ...] = (1.0, 2.0, 3.0, 1/2, 1/3),
             centers_padding_from_borders: float = 0.5,
-            boxes_scales: tuple[float] | tuple[tuple[float]] = (0.2, 0.9),
+            boxes_scales: tuple[float, float] | tuple[tuple[float, float], ...] = (0.2, 0.9),
             additional_square_box: bool = True,                 
         ) -> None:
         """
-        class for creating and managing default bounding boxes
+        class for creating and managing default bounding boxes\n
+        the default bounding boxes are created for each pixel of the given feature maps, as proposed by the single-shot-detector (ssd) object detection framework\n
+        the coordinates for the default bounding boxes are calculated during the class initialization and stored internally as coordinates scaled between 0 and 1\n
+        if you want to get the coordinates for the default bounding boxes scaled/referred to a custom shape call the appropriate method of the class
 
         Args:
-            feature_maps_shapes (tuple[tuple[int]]): a list of shapes for the feature maps on which we want to generate default bounding boxes
-            aspect_ratios (tuple[float] | tuple[tuple[float]], optional): a list of aspect ratios. Defaults to (1.0, 2.0, 3.0, 1/2, 1/3).
-            centers_padding_from_borders (float): padding margin from borders for the centers grid Defaults to 0.5.
-            boxes_scales (tuple[float], optional): minimum and maximum boxes scales. Defaults to (0.2, 0.9).
-            additional_square_box (bool, optional): additional square box proposed by original ssd paper. Defaults to True.
+            feature_maps_shapes (tuple[tuple[int, int], ...]): a list of shapes for the feature maps on which we want to generate the default bounding boxes
+            feature_maps_aspect_ratios (tuple[float | int, ...] | tuple[tuple[float | int, ...], ...], optional): a tuple of aspect ratios if all feature maps share the same aspect ratios,
+            otherwise a tuple of tuples, where you specify different aspect ratios for each feature map. Defaults to (1.0, 2.0, 3.0, 1/2, 1/3).
+            centers_padding_from_borders (float, optional): padding/margin to keep when calculating the centers of the default bounding boxes. Defaults to 0.5.
+            boxes_scales (tuple[float, float] | tuple[tuple[float, float], ...], optional): minimum and maximum boxes scales. Defaults to (0.2, 0.9).
+            additional_square_box (bool, optional): boolean flag for the additional square box proposed by the ssd paper. Defaults to True.
         """
 
-        # set attributes with arguments values
+        # set attributes - arguments values
         self.feature_maps_shapes = feature_maps_shapes
         self.feature_maps_aspect_ratios = feature_maps_aspect_ratios
         self.centers_padding_from_borders = centers_padding_from_borders
         self.boxes_scales = boxes_scales
         self.additional_square_box = additional_square_box
 
-        # generate default bounding boxes
-        # the coordinates space needs to be scaled to the input image size
-        self._feature_maps_boxes = self._generate_feature_maps_boxes(
-            feature_maps_shapes=self.feature_maps_shapes,
-            feature_maps_aspect_ratios=self.feature_maps_aspect_ratios,
-            centers_padding_from_borders=self.centers_padding_from_borders,
-            boxes_scales=self.boxes_scales,
-            additional_square_box=self.additional_square_box
-        )
+        # if arguments feature_maps_aspect_ratios it's a tuple of numbers then convert it to a tuple of tuples of numbers
+        if all(isinstance(item, float) or isinstance(item, int) for item in feature_maps_aspect_ratios):
+            self.feature_maps_aspect_ratios = tuple(feature_maps_aspect_ratios for _ in range(len(feature_maps_shapes)))        
+        else:
+            self.feature_maps_aspect_ratios = feature_maps_aspect_ratios
 
-        # initialize other attributes with default values
-        self.boxes = False
-        self.xmin = None
-        self.ymin = None
-        self.xmax = None
-        self.ymax = None
-        self.center_x = None
-        self.center_y = None
-        self.width = None
-        self.height = None
+        # set attributes - default values
+        self.feature_maps_boxes = None
+
+        # set attributes - internal use
+        # the coordinates are scaled between 0 and 1
+        self._feature_maps_boxes = self._generate_feature_maps_boxes()
+        
+        # this is used to store indexes of the coordinates
+        self._coordinates_indexes = {'xmin': 0, 'ymin': 1, 'xmax': 2, 'ymax': 3, 'center-x': 0, 'center-y': 1, 'width': 2, 'height': 2}
     
-    def _generate_feature_maps_boxes(self,
-            feature_maps_shapes: tuple[tuple[int]],
-            feature_maps_aspect_ratios: tuple[float] | tuple[tuple[float]],
-            centers_padding_from_borders: float,
-            boxes_scales: tuple[float] | tuple[tuple[float]],
-            additional_square_box: bool = True,
-        ) -> list[np.ndarray]:
+    def _generate_feature_maps_boxes(self) -> list[np.ndarray]:
         """
-        generate default bounding boxes for the given feature maps shapes and aspect ratios
-        for each pixel of each feature map, a number of len(aspect_ratios) + 1 default bounding boxes are calculated
-
-        Args:
-            feature_maps_shapes (tuple[tuple[int]]): a list of shapes for the feature maps on which we want to generate default bounding boxes
-            aspect_ratios (tuple[float] | tuple[tuple[float]], optional): a list of aspect ratios. Defaults to (1.0, 2.0, 3.0, 1/2, 1/3).
-            centers_padding_from_borders (float): padding margin from borders for the centers grid Defaults to 0.5.
-            boxes_scales (tuple[float], optional): minimum and maximum boxes scales. Defaults to (0.2, 0.9).
-            additional_square_box (bool, optional): additional square box proposed by original ssd paper. Defaults to True.
+        generate default bounding boxes for each feature map and aspect ratio\n
+        for each pixel of each feature map, a number of len(aspect_ratios) or len(aspect_ratios)+1 default bounding boxes are generated
 
         Returns:
             list.[nd.array]: 
-                a list of multi-dimensional numpy arrays, with shape (feature_map_shape[0], feature_map_shape[1], len(aspect_ratios) + 1, 4)
-                the last dimension contains corners coordinates for the default bounding boxes: xmin, ymin, xmax, ymax
+                a list of multi-dimensional numpy arrays, each one with shape (feature map height, feature map width, number of default bounding boxes, 4 coordinates), 
+                the coordinates are expressed between 0 and 1 for all the default bounding boxes of each feature map
         """    
-        
-        # if feature_maps_aspect_ratios it's simply a tuple[float] then convert it to a tuple[tuple[float]]
-        if all(isinstance(item, float) for item in feature_maps_aspect_ratios):
-            feature_maps_aspect_ratios = tuple(feature_maps_aspect_ratios for _ in range(len(feature_maps_shapes)))
-
+    
         # list to store boxes for each feature map
         feature_maps_boxes = []
 
         # list of linearly spaced scales for boxes of different feature maps
-        scales = np.linspace(boxes_scales[0], boxes_scales[1], len(feature_maps_shapes) + 1)
+        scales = np.linspace(self.boxes_scales[0], self.boxes_scales[1], len(self.feature_maps_shapes) + 1)
 
         # calculate boxes for each feature map
-        for feature_map_index, (feature_map_shape, aspect_ratios) in enumerate(zip(feature_maps_shapes, feature_maps_aspect_ratios)):
+        for feature_map_index, (feature_map_shape, aspect_ratios) in enumerate(zip(self.feature_maps_shapes, self.feature_maps_aspect_ratios)):
             
             # get the smallest side of the feature map shape
             feature_map_size = min(feature_map_shape)
@@ -100,7 +83,7 @@ class DefaultBoundingBoxes:
             ]
 
             # optionally add an additional square box, with a different scale, as proposed by original ssd paper
-            if additional_square_box:
+            if self.additional_square_box:
                 boxes_width_height.append([feature_map_size * math.sqrt(scale_current * scale_next), feature_map_size * math.sqrt(scale_current * scale_next)])
 
             # convert to numpy array
@@ -108,8 +91,8 @@ class DefaultBoundingBoxes:
 
             # calculate centers coordinates for the boxes
             # there is a center for each pixel of the feature map
-            boxes_center_x = np.linspace(start=centers_padding_from_borders, stop=feature_map_shape[1] - 1 - centers_padding_from_borders, num=feature_map_shape[1])
-            boxes_center_y = np.linspace(start=centers_padding_from_borders, stop=feature_map_shape[0] - 1 - centers_padding_from_borders, num=feature_map_shape[0])
+            boxes_center_x = np.linspace(start=self.centers_padding_from_borders, stop=feature_map_shape[1] - 1 - self.centers_padding_from_borders, num=feature_map_shape[1])
+            boxes_center_y = np.linspace(start=self.centers_padding_from_borders, stop=feature_map_shape[0] - 1 - self.centers_padding_from_borders, num=feature_map_shape[0])
 
             # manipulate the arrays of centers to get outputs of shape (feature_map_shape_y, feature_map_shape_x, 1)
             boxes_center_x, boxes_center_y = np.meshgrid(boxes_center_x, boxes_center_y)
@@ -133,94 +116,45 @@ class DefaultBoundingBoxes:
 
         return feature_maps_boxes
 
-    def calculate_boxes_coordinates(self, image_shape: tuple[int]) -> None:
+    def rescale_boxes_coordinates(self, image_shape: tuple[int, int]) -> None:
         """
-        calculate and scale default bounding boxes coordinates
+        rescale the default bounding boxes coordinates to a given image shape
 
         Args:
-            image_shape (tuple[int]): input image shape            
+            image_shape (tuple[int]): image shape where you want to visualize/show the default bounding boxes
         """
 
-        # default bounding boxes, reshaped as expected output from a ssd network
-        self.boxes = np.concatenate([np.reshape(feature_map_boxes, newshape=(-1, 4)) for feature_map_boxes in self._feature_maps_boxes], axis=0)
+        # reset the default bounding boxes coordinates
+        self.feature_maps_boxes = []
 
-        # scale default bounding boxes coordinates to input image size
-        self.boxes[:, [0, 2]] = self.boxes[:, [0, 2]] * image_shape[1]
-        self.boxes[:, [1, 3]] = self.boxes[:, [1, 3]] * image_shape[0]
+        # rescale the coordinates of the default bounding boxes for each feature map
+        for feature_map_boxes in self._feature_maps_boxes:
+            # scale width
+            feature_map_boxes[:, [0, 2]] = feature_map_boxes[:, [0, 2]] * image_shape[1]
 
-        # set corners coordinates
-        self.xmin, self.ymin, self.xmax, self.ymax = np.split(self.boxes, 4, axis=-1)
-        self.xmin = self.xmin.reshape(-1)
-        self.ymin = self.ymin.reshape(-1)
-        self.xmax = self.xmax.reshape(-1)
-        self.ymax = self.ymax.reshape(-1)
+            # scale height
+            feature_map_boxes[:, [1, 3]] = feature_map_boxes[:, [1, 3]] * image_shape[0]
 
-        # set centroids coordinates
-        self.center_x = (self.xmax + self.xmin) / 2.0
-        self.center_y = (self.ymax + self.ymin) / 2.0
-        self.width = self.xmax - self.xmin + 1.0
-        self.height = self.ymax - self.ymin + 1.0
+            # append to the default bounding boxes attribute
+            self.feature_maps_boxes.append(feature_map_boxes)
 
-    def get_feature_maps_boxes(self) -> list[np.ndarray]:
-        """
-        simply returns unscaled raw boxes for each feature map
+    def _get_coordinates(coordinate: Literal['xmin', 'ymin', 'xmax', 'ymax', 'center-x', 'center-y', 'width', 'height']):
+        pass        
 
-        Returns:
-            list[np.ndarray]:
-                a list with boxes for each feature map
-                boxes are numpy arrays with shape (feature_map_shape_y, feature_maps_shape_x, len(aspect_ratios) + 1, 4)
-                for each position/pixel in the feature map there are n default bounding boxes
-                boxes are described in corners coordinates (x_min, y_min, x_max, y_max)
-        """
-        return self._feature_maps_boxes
+        
 
-def boxes_corners_to_centroids(boxes: np.ndarray[np.ndarray]) -> np.ndarray[np.ndarray]:
-    """
-    convert bounding boxes coordinates from corners to centroids
+        # # set corners coordinates
+        # self.xmin, self.ymin, self.xmax, self.ymax = np.split(self.boxes, 4, axis=-1)
+        # self.xmin = self.xmin.reshape(-1)
+        # self.ymin = self.ymin.reshape(-1)
+        # self.xmax = self.xmax.reshape(-1)
+        # self.ymax = self.ymax.reshape(-1)
 
-    Args:
-        boxes (np.ndarray[np.ndarray]): corners coordinates are expected on last axis in the order (x_min, y_min, x_max, y_max)
-
-    Returns:
-        np.ndarray[np.ndarray]: boxes with centroids coordinates (center_x, center_y, width, height), same shape as input
-    """
-
-    # note: pixels coordinates should be threated as indexes, be careful with +-1 operations
-
-    # prepare output object
-    centroids = np.empty_like(boxes, dtype=np.float32)
-
-    # center x and y
-    centroids[:, [0, 1]] = (boxes[:, [2, 3]] + boxes[:, [0, 1]]) / 2.0
-
-    # width and height
-    centroids[:, [2, 3]] = boxes[:, [2, 3]] - boxes[:, [0, 1]] + 1.0
-
-    return centroids
-
-def boxes_centroids_to_corners(boxes: np.ndarray[np.ndarray]) -> np.ndarray[np.ndarray]:
-    """
-    convert bounding boxes coordinates from centroids to corners
-
-    Args:
-        boxes (np.ndarray[np.ndarray]): centroids coordinates are expected on last axis in the order (center_x, center_y, width, height)
-
-    Returns:
-        np.ndarray[np.ndarray]: boxes with corners coordinates (x_min, y_min, x_max, y_max), same shape as input
-    """
-
-    # note: pixels coordinates should be threated as indexes, be careful with +-1 operations
-
-    # prepare output boxes object
-    corners = np.empty_like(boxes)
-
-    # xmin, ymin
-    corners[:, [0, 1]] = boxes[:, [0, 1]] - (boxes[:, [2, 3]] - 1.0) / 2.0
-
-    # xmax, ymax
-    corners[:, [2, 3]] = boxes[:, [0, 1]] + (boxes[:, [2, 3]] - 1.0) / 2.0
-    
-    return corners
+        # # set centroids coordinates
+        # self.center_x = (self.xmax + self.xmin) / 2.0
+        # self.center_y = (self.ymax + self.ymin) / 2.0
+        # self.width = self.xmax - self.xmin + 1.0
+        # self.height = self.ymax - self.ymin + 1.0
 
 def coordinates_corners_to_centroids(
         xmin: np.ndarray[float],
