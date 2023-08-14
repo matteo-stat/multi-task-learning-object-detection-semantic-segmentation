@@ -5,65 +5,74 @@ from typing import Literal
 class DefaultBoundingBoxes:
     def __init__(self,
             feature_maps_shapes: tuple[tuple[int, int], ...],
-            feature_maps_aspect_ratios: tuple[float | int, ...] | tuple[tuple[float | int, ...], ...] = (1.0, 2.0, 3.0, 1/2, 1/3),
+            feature_maps_aspect_ratios: tuple[float | int, ...] | tuple[tuple[float | int, ...], ...] = (1, 2, 3, 1/2, 1/3),
+            boxes_scales: tuple[float, float] = (0.2, 0.9),
             centers_padding_from_borders: float = 0.5,
-            boxes_scales: tuple[float, float] | tuple[tuple[float, float], ...] = (0.2, 0.9),
             additional_square_box: bool = True,                 
         ) -> None:
         """
         class for creating and managing default bounding boxes\n
-        the default bounding boxes are created for each pixel of the given feature maps, as proposed by the single-shot-detector (ssd) object detection framework\n
-        the coordinates for the default bounding boxes are calculated during the class initialization and stored internally as coordinates scaled between 0 and 1\n
-        if you want to get the coordinates for the default bounding boxes scaled/referred to a custom shape call the appropriate method of the class
+        the default bounding boxes are created for each pixel in the given feature maps, as proposed by the single-shot-detector (ssd) object detection framework\n
+        the coordinates for the default bounding boxes are calculated during the class initialization, normalized/scaled in the range [0, 1] and stored internally\n
+        if you want to get the coordinates for the default bounding boxes scaled to a custom image shape, call the appropriate class method
 
         Args:
-            feature_maps_shapes (tuple[tuple[int, int], ...]): a list of shapes for the feature maps on which we want to generate the default bounding boxes
+            feature_maps_shapes (tuple[tuple[int, int], ...]): a list of shapes for the feature maps on which you want to generate the default bounding boxes
             feature_maps_aspect_ratios (tuple[float | int, ...] | tuple[tuple[float | int, ...], ...], optional): a tuple of aspect ratios if all feature maps share the same aspect ratios,
-            otherwise a tuple of tuples, where you specify different aspect ratios for each feature map. Defaults to (1.0, 2.0, 3.0, 1/2, 1/3).
-            centers_padding_from_borders (float, optional): padding/margin to keep when calculating the centers of the default bounding boxes. Defaults to 0.5.
-            boxes_scales (tuple[float, float] | tuple[tuple[float, float], ...], optional): minimum and maximum boxes scales. Defaults to (0.2, 0.9).
+            otherwise a tuple of tuples, where you specify different aspect ratios for each feature map. Defaults to (1, 2, 3, 1/2, 1/3).
+            boxes_scales (tuple[float, float], optional): a tuple of minimum and maximum boxes scales,
+            first feature map will have minimum boxes scale, last one maximum boxes scale, the middle ones have boxes scales linearly spaced. Defaults to (0.2, 0.9).
+            centers_padding_from_borders (float, optional): padding/margin to keep from image borders when calculating the default bounding boxes centers. Defaults to 0.5.
             additional_square_box (bool, optional): boolean flag for the additional square box proposed by the ssd paper. Defaults to True.
         """
 
-        # set attributes - arguments values
+        # set attributes with arguments
         self.feature_maps_shapes = feature_maps_shapes
-        self.feature_maps_aspect_ratios = feature_maps_aspect_ratios
         self.centers_padding_from_borders = centers_padding_from_borders
-        self.boxes_scales = boxes_scales
         self.additional_square_box = additional_square_box
 
+        # an additional scale it's calculated because it could be needed when calculating the additional square box in last feature map
+        self.boxes_scales = np.linspace(boxes_scales[0], boxes_scales[1], len(self.feature_maps_shapes) + 1)
+
         # if arguments feature_maps_aspect_ratios it's a tuple of numbers then convert it to a tuple of tuples of numbers
+        # this not an exhaustive validation.. but should be enough to avoid obvious mistakes
         if all(isinstance(item, float) or isinstance(item, int) for item in feature_maps_aspect_ratios):
-            self.feature_maps_aspect_ratios = tuple(feature_maps_aspect_ratios for _ in range(len(feature_maps_shapes)))        
+            self.feature_maps_aspect_ratios = tuple(feature_maps_aspect_ratios for _ in range(len(feature_maps_shapes)))
+
+        elif len(feature_maps_aspect_ratios) < len(feature_maps_shapes):
+            raise ValueError('if you are passing a tuple of tuples of aspect ratios, then it should have same length as the tuple of feature maps shapes')
+        
         else:
             self.feature_maps_aspect_ratios = feature_maps_aspect_ratios
 
-        # set attributes - default values
-        self.feature_maps_boxes = None
-
-        # set attributes - internal use
-        # the coordinates are scaled between 0 and 1
-        self._feature_maps_boxes = self._generate_feature_maps_boxes()
-        
-        # this is used to store indexes of the coordinates
+        # store indexes for the various types of coordinates
         self._coordinates_indexes = {'xmin': 0, 'ymin': 1, 'xmax': 2, 'ymax': 3, 'center-x': 0, 'center-y': 1, 'width': 2, 'height': 3}
-    
+
+        # store default bounding boxes for each feature map, scaled between [0, 1]
+        # it's a list with length equal to the number of feature maps
+        # each element of the list it's a numpy.ndarray, with shape (feature map height, feature map width, number of default bounding boxes, 4 coordinates)
+        # the coordinates are in the common corners format, so (xmin, ymin, xmax, ymax)
+        self._feature_maps_boxes = self._generate_feature_maps_boxes()
+
+        # store default bounding boxes for each feature map, scaled to a custom image shape
+        # this attribute is set when the appropriate method it's called
+        # same structure as _feature_maps_boxes attribute
+        self.feature_maps_boxes = None
+        
     def _generate_feature_maps_boxes(self) -> list[np.ndarray]:
         """
-        generate default bounding boxes for each feature map and aspect ratio\n
+        generate default bounding boxes for each feature map\n
         for each pixel of each feature map, a number of len(aspect_ratios) or len(aspect_ratios)+1 default bounding boxes are generated
 
         Returns:
-            list.[nd.array]: 
-                a list of multi-dimensional numpy arrays, each one with shape (feature map height, feature map width, number of default bounding boxes, 4 coordinates), 
-                the coordinates are expressed between 0 and 1 for all the default bounding boxes of each feature map
-        """    
+            list.[nd.array]:
+                a list with length equal to the number of feature maps,
+                where each element it's a numpy.ndarray, with shape (feature map height, feature map width, number of default bounding boxes, 4 coordinates)\n
+                the coordinates are in the common corners format (xmin, ymin, xmax, ymax) and scaled between [0, 1]
+        """
     
         # list to store boxes for each feature map
         feature_maps_boxes = []
-
-        # list of linearly spaced scales for boxes of different feature maps
-        scales = np.linspace(self.boxes_scales[0], self.boxes_scales[1], len(self.feature_maps_shapes) + 1)
 
         # calculate boxes for each feature map
         for feature_map_index, (feature_map_shape, aspect_ratios) in enumerate(zip(self.feature_maps_shapes, self.feature_maps_aspect_ratios)):
@@ -72,19 +81,19 @@ class DefaultBoundingBoxes:
             feature_map_size = min(feature_map_shape)
 
             # get scales for current feature map and the next one
-            scale_current = scales[feature_map_index]
-            scale_next = scales[feature_map_index + 1]
+            boxes_scale_current = self.boxes_scales[feature_map_index]
+            boxes_scale_next = self.boxes_scales[feature_map_index + 1]
 
             # calculate width and height for each aspect ratio
             # the output is a list of lists like [[width, height], ..., [width, height]], same length as given aspect ratios list
             boxes_width_height = [
-                [feature_map_size * scale_current * math.sqrt(aspect_ratio), feature_map_size * scale_current / math.sqrt(aspect_ratio)]
+                [feature_map_size * boxes_scale_current * math.sqrt(aspect_ratio), feature_map_size * boxes_scale_current / math.sqrt(aspect_ratio)]
                 for aspect_ratio in aspect_ratios
             ]
 
             # optionally add an additional square box, with a different scale, as proposed by original ssd paper
             if self.additional_square_box:
-                boxes_width_height.append([feature_map_size * math.sqrt(scale_current * scale_next), feature_map_size * math.sqrt(scale_current * scale_next)])
+                boxes_width_height.append([feature_map_size * math.sqrt(boxes_scale_current * boxes_scale_next), feature_map_size * math.sqrt(boxes_scale_current * boxes_scale_next)])
 
             # convert to numpy array
             boxes_width_height = np.array(boxes_width_height)
