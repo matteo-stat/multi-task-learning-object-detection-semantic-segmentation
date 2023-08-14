@@ -11,13 +11,14 @@ fig_cols = 2
 
 # create default bounding boxes
 default_bounding_boxes = boxes.DefaultBoundingBoxes(
-    feature_maps_shapes=((24, 32), (12, 16), (6, 8), (3, 4)),
-    feature_maps_aspect_ratios=((1.0, 2.0, 3.0, 1/2, 1/3), (1.0, 4.0), (1/2, 1/3, 1/4), (1/2, 1.0)),
-    centers_padding_from_borders=0,
-    boxes_scales=(0.1, 0.9),
-    additional_square_box=True
+    feature_maps_shapes=((30, 40), (15, 20), (7, 10), (1, 1)),
+    feature_maps_aspect_ratios=((1, 2, 3), (1, 2, 3), (1, 2, 3), (1, 2, 3)),
+    centers_padding_from_borders_percentage=0.025,
+    additional_square_box=False
 )
-feature_maps_boxes = default_bounding_boxes.get_feature_maps_boxes()
+
+# scale default bounding boxes to image shape
+default_bounding_boxes.rescale_boxes_coordinates(image_shape=image_shape)
 
 # create subplots and set figure size
 fig, axes = plt.subplots(nrows=fig_rows, ncols=fig_cols, constrained_layout=True)
@@ -32,17 +33,13 @@ colors = list(pltcolors.BASE_COLORS.values())[:len(default_bounding_boxes.featur
 
 # scale and convert to centroids boxes for each feature map
 i = 0
-for boxes_default, color, feature_map_aspect_ratios in zip(feature_maps_boxes, colors, default_bounding_boxes.feature_maps_aspect_ratios):  
-    
+for boxes_default, color in zip(default_bounding_boxes.get_boxes_coordinates_corners('feature-maps'), colors):
+   
     # extract boxes at the center of the feature map
     feat_map_center_x, feat_map_center_y = boxes_default.shape[:2]
     feat_map_center_x = feat_map_center_x // 2
     feat_map_center_y = feat_map_center_y // 2
     boxes_default = boxes_default[feat_map_center_x, feat_map_center_y, :, :]
-
-    # scale to image shape
-    boxes_default[:, [0, 2]] = boxes_default[:, [0, 2]] * image_shape[1]
-    boxes_default[:, [1, 3]] = boxes_default[:, [1, 3]] * image_shape[0]
 
     # set plot axes limits
     axes[i].set_xlim(0, image_shape[1])

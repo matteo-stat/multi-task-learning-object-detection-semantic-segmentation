@@ -6,7 +6,7 @@ class DefaultBoundingBoxes:
             feature_maps_shapes: Tuple[Tuple[int, int], ...],
             feature_maps_aspect_ratios: Tuple[float | int, ...] | Tuple[Tuple[float | int, ...], ...] = (1, 2, 3, 1/2, 1/3),
             boxes_scales: Tuple[float, float] = (0.2, 0.9),
-            centers_padding_from_borders: float = 0.5,
+            centers_padding_from_borders_percentage: float = 0.05,
             additional_square_box: bool = True,                 
         ) -> None:
         """
@@ -21,12 +21,21 @@ class DefaultBoundingBoxes:
             otherwise a Tuple of tuples, where you specify different aspect ratios for each feature map (aspect ratios are intended as width:height). Defaults to (1, 2, 3, 1/2, 1/3).
             boxes_scales (Tuple[float, float], optional): a tuple of minimum and maximum boxes scales,
             first feature map will have minimum boxes scale, last one maximum boxes scale, the middle ones have boxes scales linearly spaced. Defaults to (0.2, 0.9).
-            centers_padding_from_borders (float, optional): padding/margin to keep from image borders when calculating the default bounding boxes centers. Defaults to 0.5.
+            centers_padding_from_borders_percentage (float, optional): padding/margin in percentage to keep from image borders when calculating the default bounding boxes centers. Defaults to 0.05.
             additional_square_box (bool, optional): boolean flag for the additional square box proposed by the ssd paper. Defaults to True.
         """
-        # set attributes with arguments
+
+        # # due to this class implementation you can't 
+        # if any(shape < 2 for shapes in feature_maps_shapes for shape in shapes):
+        #     raise ValueError('due to this class implementation can generate default bounding boxes only on feature maps with shapes greater than 1')
+        
+
+        # set attributes with arguments        
         self.feature_maps_shapes = feature_maps_shapes
-        self.centers_padding_from_borders = centers_padding_from_borders
+        if 0 <= centers_padding_from_borders_percentage < 0.5:
+            self.centers_padding_from_borders_percentage = centers_padding_from_borders_percentage
+        else:
+            raise ValueError('the percentage padding from borders when calculating default bounding boxes centers must be between 0 and 0.5')
         self.additional_square_box = additional_square_box
 
         # an additional scale it's calculated because it could be needed when calculating the additional square box in last feature map
@@ -94,8 +103,25 @@ class DefaultBoundingBoxes:
 
             # for each pixel of the feature map calculate centers coordinates for the boxes
             # note: pixels coordinates should be threated as image indexes, be careful with +-1 operations
-            boxes_center_x = np.linspace(start=self.centers_padding_from_borders, stop=feature_map_shape[1] - 1.0 - self.centers_padding_from_borders, num=feature_map_shape[1])
-            boxes_center_y = np.linspace(start=self.centers_padding_from_borders, stop=feature_map_shape[0] - 1.0 - self.centers_padding_from_borders, num=feature_map_shape[0])
+            if feature_map_shape[0] == 1:
+                boxes_center_y = np.array([0.5])
+            else:
+                centers_padding_from_borders_pixels = self.centers_padding_from_borders_percentage * (feature_map_shape[0] - 1.0)
+                boxes_center_y = np.linspace(
+                    start=centers_padding_from_borders_pixels,
+                    stop=feature_map_shape[0] - 1.0 - centers_padding_from_borders_pixels,
+                    num=feature_map_shape[0]
+                )
+
+            if feature_map_shape[1] == 1:
+                boxes_center_x = np.array([0.5])
+            else:
+                centers_padding_from_borders_pixels = self.centers_padding_from_borders_percentage * (feature_map_shape[1] - 1.0)
+                boxes_center_x = np.linspace(
+                    start=centers_padding_from_borders_pixels,
+                    stop=feature_map_shape[1] - 1.0 - centers_padding_from_borders_pixels,
+                    num=feature_map_shape[1]
+                )             
 
             # manipulate the arrays of centers to get outputs of shape (feature_map_shape_y, feature_map_shape_x, 1)
             boxes_center_x, boxes_center_y = np.meshgrid(boxes_center_x, boxes_center_y)
@@ -106,12 +132,14 @@ class DefaultBoundingBoxes:
             # for each pixel in the feature map we will get corners coordinates (xmin, ymin, xmax, ymax) for all the default bounding boxes
             boxes = np.zeros((feature_map_shape[0], feature_map_shape[1], len(boxes_shapes), 4), dtype=np.float32)
 
-            # populate output array
+            # populate output array (convert the centroids coordinates to corners)
             # assign to the last dimension the 4 values xmin, ymin, xmax, ymax (normalized between 0 and 1)
-            boxes[:, :, :, self._coordinates_indexes['xmin']] = (np.tile(boxes_center_x, (1, 1, len(boxes_shapes))) - (boxes_shapes[:, 1] - 1.0) / 2.0) / feature_map_shape[1]
-            boxes[:, :, :, self._coordinates_indexes['ymin']] = (np.tile(boxes_center_y, (1, 1, len(boxes_shapes))) - (boxes_shapes[:, 0] - 1.0) / 2.0) / feature_map_shape[0]
-            boxes[:, :, :, self._coordinates_indexes['xmax']] = (np.tile(boxes_center_x, (1, 1, len(boxes_shapes))) + (boxes_shapes[:, 1] - 1.0) / 2.0) / feature_map_shape[1]
-            boxes[:, :, :, self._coordinates_indexes['ymax']] = (np.tile(boxes_center_y, (1, 1, len(boxes_shapes))) + (boxes_shapes[:, 0] - 1.0) / 2.0) / feature_map_shape[0]
+            normalization_factor_x = feature_map_shape[1] - 1.0 if feature_map_shape[1] > 1.0 else 1.0
+            normalization_factor_y = feature_map_shape[0] - 1.0 if feature_map_shape[0] > 1.0 else 1.0
+            boxes[:, :, :, self._coordinates_indexes['xmin']] = (np.tile(boxes_center_x, (1, 1, len(boxes_shapes))) - (boxes_shapes[:, 1] - 1.0) / 2.0) / normalization_factor_x
+            boxes[:, :, :, self._coordinates_indexes['ymin']] = (np.tile(boxes_center_y, (1, 1, len(boxes_shapes))) - (boxes_shapes[:, 0] - 1.0) / 2.0) / normalization_factor_y
+            boxes[:, :, :, self._coordinates_indexes['xmax']] = (np.tile(boxes_center_x, (1, 1, len(boxes_shapes))) + (boxes_shapes[:, 1] - 1.0) / 2.0) / normalization_factor_x
+            boxes[:, :, :, self._coordinates_indexes['ymax']] = (np.tile(boxes_center_y, (1, 1, len(boxes_shapes))) + (boxes_shapes[:, 0] - 1.0) / 2.0) / normalization_factor_y
 
             # append boxes calculated for the feature map
             feature_maps_boxes.append(boxes)
@@ -132,10 +160,10 @@ class DefaultBoundingBoxes:
         # rescale the coordinates of the default bounding boxes for each feature map
         for boxes in feature_maps_boxes:
             # scale width
-            boxes[:, [self._coordinates_indexes['xmin'], self._coordinates_indexes['xmax']]] = boxes[:, [self._coordinates_indexes['xmin'], self._coordinates_indexes['xmax']]] * image_shape[1]
+            boxes[:, :, :, [self._coordinates_indexes['xmin'], self._coordinates_indexes['xmax']]] = boxes[:, :, :, [self._coordinates_indexes['xmin'], self._coordinates_indexes['xmax']]] * image_shape[1]
 
             # scale height
-            boxes[:, [self._coordinates_indexes['ymin'], self._coordinates_indexes['ymax']]] = boxes[:, [self._coordinates_indexes['ymin'], self._coordinates_indexes['ymax']]] * image_shape[0]
+            boxes[:, :, :, [self._coordinates_indexes['ymin'], self._coordinates_indexes['ymax']]] = boxes[:, :, :, [self._coordinates_indexes['ymin'], self._coordinates_indexes['ymax']]] * image_shape[0]
 
             # append to the default bounding boxes attribute
             self.feature_maps_boxes.append(boxes)
@@ -145,8 +173,19 @@ class DefaultBoundingBoxes:
             coordinates_type: Literal['xmin', 'ymin', 'xmax', 'ymax', 'corners'],
             coordinates_style: Literal['ssd', 'feature-maps']
         ) -> Tuple[np.ndarray] | np.ndarray:
+        """
+        internal method that return the requested corners coordinates        
 
-        # retrieve the coordinates using the proper indexes
+        Args:
+            coordinates_type (Literal['xmin', 'ymin', 'xmax', 'ymax', 'corners']): pass 'corners' to get all the corners coordinates,
+            otherwise pass a valid arguments to get the specific corners coordinates type
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes with a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing default bounding boxes for each feature map
+
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes as corners coordinates
+        """
+        # retrieve the requested coordinates using the proper indexes
         coordinates_indexes = (self._coordinates_indexes[coordinates_type], ) if isinstance(self._coordinates_indexes[coordinates_type], int) else self._coordinates_indexes[coordinates_type]
         coordinates = tuple(boxes[:, :, :, coordinates_indexes] for boxes in self.feature_maps_boxes)
 
@@ -159,37 +198,187 @@ class DefaultBoundingBoxes:
 
         return coordinates
 
-    def get_boxes_coordinates_corners(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray]:        
+    def get_boxes_coordinates_corners(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+        """
+        return all the default bounding boxes as corners coordinates, with the specified style        
+
+        Args:
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes with a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing default bounding boxes for each feature map
+
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes as corners coordinates
+        """                
         return self._get_boxes_coordinates_corners_all_or_single(coordinates_type='corners', coordinates_style=coordinates_style)
     
-    def get_boxes_coordinates_xmin(self, coordinates_style: Literal['ssd', 'feature-maps']) -> np.ndarray:
+    def get_boxes_coordinates_xmin(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+        """
+        return all the default bounding boxes xmin corners coordinates, with the specified style        
+
+        Args:
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes with a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing default bounding boxes for each feature map
+
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes xmin corners coordinates
+        """          
         return self._get_boxes_coordinates_corners_all_or_single(coordinates_type='xmin', coordinates_style=coordinates_style)
 
-    def get_boxes_coordinates_ymin(self, coordinates_style: Literal['ssd', 'feature-maps']) -> np.ndarray:
+    def get_boxes_coordinates_ymin(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+        """
+        return all the default bounding boxes ymin corners coordinates, with the specified style        
+
+        Args:
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes with a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing default bounding boxes for each feature map
+
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes ymin corners coordinates
+        """ 
         return self._get_boxes_coordinates_corners_all_or_single(coordinates_type='ymin', coordinates_style=coordinates_style)
     
-    def get_boxes_coordinates_xmax(self, coordinates_style: Literal['ssd', 'feature-maps']) -> np.ndarray:
+    def get_boxes_coordinates_xmax(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+        """
+        return all the default bounding boxes xmax corners coordinates, with the specified style        
+
+        Args:
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes with a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing default bounding boxes for each feature map
+
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes xmax corners coordinates
+        """         
         return self._get_boxes_coordinates_corners_all_or_single(coordinates_type='xmax', coordinates_style=coordinates_style)
 
-    def get_boxes_coordinates_ymax(self, coordinates_style: Literal['ssd', 'feature-maps']) -> np.ndarray:
+    def get_boxes_coordinates_ymax(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+        """
+        return all the default bounding boxes ymax corners coordinates, with the specified style        
+
+        Args:
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes with a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing default bounding boxes for each feature map
+
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes ymax corners coordinates
+        """         
         return self._get_boxes_coordinates_corners_all_or_single(coordinates_type='ymax', coordinates_style=coordinates_style)
     
-
     def _get_boxes_coordinates_centroids_all_or_single(
             self,
-            coordinates_type: Literal['xmin', 'ymin', 'xmax', 'ymax', 'corners'],
+            coordinates_type: Literal['center-x', 'center-y', 'width', 'height', 'centroids'],
             coordinates_style: Literal['ssd', 'feature-maps']
-        ):
+        ) -> Tuple[np.ndarray] | np.ndarray:
+        """
+        internal method that return the requested centroids coordinates        
 
-        corners = self._get_boxes_coordinates_corners_all_or_single(coordinates_type='corners', coordinates_style=coordinates_style)
+        Args:
+            coordinates_type (Literal['center-x', 'center-y', 'width', 'height', 'centroids']): pass 'centroids' to get all the centroids coordinates,
+            otherwise pass a valid arguments to get the specific centroids coordinates type
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes as centroids coordinates a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
 
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes as centroids coordinates
+        """        
 
-        return None
+        # get coordinates with feature-maps style and corners type
+        boxes_corners = self._get_boxes_coordinates_corners_all_or_single(coordinates_type='corners', coordinates_style='feature-maps')
+        
+        # initialize the list for store the centroids coordinates
+        boxes_centroids = []
 
-    def get_boxes_coordinates_centroids(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray]:
-        return None
+        # for each feature map convert the corners coordinates to centroids coordinates
+        for i in range(len(boxes_corners)):
+            # split the coordinates for easier computation
+            xmin, ymin, xmax, ymax = np.split(boxes_corners[i], 4, axis=3)
+
+            # calculate centroids coordinates
+            center_x = (xmax + xmin) / 2.0
+            center_y = (ymax + ymin) / 2.0
+            width = xmax - xmin + 1.0
+            height = ymax - ymin + 1.0
             
+            # concatenate the centroids coordinates and add them to the list
+            boxes_centroids.append(np.concatenate((center_x, center_y, width, height), axis=3))
 
+        # retrieve the requested coordinates using the proper indexes
+        coordinates_indexes = (self._coordinates_indexes[coordinates_type], ) if isinstance(self._coordinates_indexes[coordinates_type], int) else self._coordinates_indexes[coordinates_type]
+        coordinates = tuple(boxes[:, :, :, coordinates_indexes] for boxes in boxes_centroids)
+
+        # if the requested coordinates style it's single-shot-detector (ssd) then concatenate all the coordinates
+        # this return the coordinates with a shape like the detection output from a network using ssd framework for object detection
+        if coordinates_style == 'ssd':
+            coordinates_shape = (-1, 4) if coordinates_type == 'centroids' else (-1, )
+            coordinates = [np.reshape(item, newshape=coordinates_shape) for item in coordinates]
+            coordinates = np.concatenate(coordinates, axis=0)
+
+        return coordinates
+
+    def get_boxes_coordinates_centroids(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray]:        
+        """
+        return all the default bounding boxes as centroids coordinates, with the specified style        
+
+        Args:
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes as centroids coordinates a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
+
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes as centroids coordinates
+        """         
+        return self._get_boxes_coordinates_centroids_all_or_single(coordinates_type='centroids', coordinates_style=coordinates_style)
+    
+    def get_boxes_coordinates_center_x(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+        """
+        return all the default bounding boxes center-x centroids coordinates, with the specified style        
+
+        Args:
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes as centroids coordinates a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
+
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes as center-x centroids coordinates
+        """         
+        return self._get_boxes_coordinates_centroids_all_or_single(coordinates_type='center-x', coordinates_style=coordinates_style)
+
+    def get_boxes_coordinates_center_y(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+        """
+        return all the default bounding boxes center-y centroids coordinates, with the specified style        
+
+        Args:
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes as centroids coordinates a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
+
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes as center-y centroids coordinates
+        """      
+        return self._get_boxes_coordinates_centroids_all_or_single(coordinates_type='center-y', coordinates_style=coordinates_style)
+    
+    def get_boxes_coordinates_width(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+        """
+        return all the default bounding boxes width centroids coordinates, with the specified style        
+
+        Args:
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes as centroids coordinates a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
+
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes as width centroids coordinates
+        """      
+        return self._get_boxes_coordinates_centroids_all_or_single(coordinates_type='width', coordinates_style=coordinates_style)
+
+    def get_boxes_coordinates_height(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+        """
+        return all the default bounding boxes height centroids coordinates, with the specified style        
+
+        Args:
+            coordinates_style (Literal['ssd', 'feature-maps'): if 'ssd' then return the default bounding boxes as centroids coordinates a shape similar to the object detection output from a network using the single-shot-detector framework,
+            if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
+
+        Returns:
+            Tuple[np.ndarray] | np.ndarray: default bounding boxes as height centroids coordinates
+        """      
+        return self._get_boxes_coordinates_centroids_all_or_single(coordinates_type='height', coordinates_style=coordinates_style)
+            
 
 def coordinates_corners_to_centroids(
         xmin: np.ndarray[float],
