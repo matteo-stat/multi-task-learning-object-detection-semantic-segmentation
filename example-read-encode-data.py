@@ -12,20 +12,20 @@ SEED = 1993
 boxes_default = ssdseglib.boxes.DefaultBoundingBoxes(
     feature_maps_shapes=((24, 32), (12, 16), (6, 8), (3, 4)),
     feature_maps_aspect_ratios=(1.0, 2.0, 3.0, 1/2, 1/3),
-    centers_padding_from_borders=0.5,
+    centers_padding_from_borders_percentage=0.025,
     boxes_scales=(0.1, 0.5),
     additional_square_box=True,  
 )
-boxes_default.calculate_boxes_coordinates(image_shape=INPUT_IMAGE_SHAPE)
+boxes_default.rescale_boxes_coordinates(image_shape=INPUT_IMAGE_SHAPE)
 
 # create a data reader encoder
 data_reader_encoder = ssdseglib.datacoder.DataEncoderDecoder(
     num_classes=4,
     image_shape=INPUT_IMAGE_SHAPE,
-    xmin_boxes_default=boxes_default.xmin,
-    ymin_boxes_default=boxes_default.ymin,
-    xmax_boxes_default=boxes_default.xmax,
-    ymax_boxes_default=boxes_default.ymax,
+    xmin_boxes_default=boxes_default.get_boxes_coordinates_xmin(coordinates_style='ssd'),
+    ymin_boxes_default=boxes_default.get_boxes_coordinates_ymin(coordinates_style='ssd'),
+    xmax_boxes_default=boxes_default.get_boxes_coordinates_xmax(coordinates_style='ssd'),
+    ymax_boxes_default=boxes_default.get_boxes_coordinates_ymax(coordinates_style='ssd'),
     iou_threshold=0.5,
     std_offsets=(0.1, 0.1, 0.2, 0.2),
     augmentation_horizontal_flip=True

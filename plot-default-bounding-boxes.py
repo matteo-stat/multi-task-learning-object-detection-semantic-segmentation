@@ -13,15 +13,12 @@ fig_cols = 2
 default_bounding_boxes = boxes.DefaultBoundingBoxes(
     feature_maps_shapes=((30, 40), (15, 20), (7, 10), (3, 3)),
     feature_maps_aspect_ratios=(1,),
-    centers_padding_from_borders_percentage=0,
+    centers_padding_from_borders_percentage=0.025,
     additional_square_box=False
 )
 
 # scale default bounding boxes to image shape
 default_bounding_boxes.rescale_boxes_coordinates(image_shape=image_shape)
-s = default_bounding_boxes.get_boxes_coordinates_centroids('feature-maps')
-print(s[0][0, 0, 0, :])
-
 
 # create subplots and set figure size
 fig, axes = plt.subplots(nrows=fig_rows, ncols=fig_cols, constrained_layout=True)
