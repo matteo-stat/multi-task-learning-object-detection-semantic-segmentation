@@ -19,7 +19,7 @@ class DefaultBoundingBoxes:
         Args:
             feature_maps_shapes (tuple[tuple[int, int], ...]): a list of shapes for the feature maps on which you want to generate the default bounding boxes
             feature_maps_aspect_ratios (tuple[float | int, ...] | tuple[tuple[float | int, ...], ...], optional): a tuple of aspect ratios if all feature maps share the same aspect ratios,
-            otherwise a tuple of tuples, where you specify different aspect ratios for each feature map. Defaults to (1, 2, 3, 1/2, 1/3).
+            otherwise a tuple of tuples, where you specify different aspect ratios for each feature map (aspect ratios are intended as width:height). Defaults to (1, 2, 3, 1/2, 1/3).
             boxes_scales (tuple[float, float], optional): a tuple of minimum and maximum boxes scales,
             first feature map will have minimum boxes scale, last one maximum boxes scale, the middle ones have boxes scales linearly spaced. Defaults to (0.2, 0.9).
             centers_padding_from_borders (float, optional): padding/margin to keep from image borders when calculating the default bounding boxes centers. Defaults to 0.5.
@@ -84,24 +84,24 @@ class DefaultBoundingBoxes:
             boxes_scale_current = self.boxes_scales[feature_map_index]
             boxes_scale_next = self.boxes_scales[feature_map_index + 1]
 
-            # calculate width and height for each aspect ratio
-            # the output is a list of lists like [[width, height], ..., [width, height]], same length as given aspect ratios list
-            boxes_width_height = [
-                [feature_map_size * boxes_scale_current * math.sqrt(aspect_ratio), feature_map_size * boxes_scale_current / math.sqrt(aspect_ratio)]
+            # calculate boxes shapes for each aspect ratio
+            # the output is a list of lists like [[height, width], ..., [height, width]]        
+            boxes_shapes = [
+                [feature_map_shape[1] * boxes_scale_current / aspect_ratio, feature_map_shape[1] * boxes_scale_current]
                 for aspect_ratio in aspect_ratios
-            ]
+            ]                
 
-            # optionally add an additional square box, with a different scale, as proposed by original ssd paper
+            # optionally add an additional square box, with a different scale, as proposed by the original ssd paper
             if self.additional_square_box:
-                boxes_width_height.append([feature_map_size * math.sqrt(boxes_scale_current * boxes_scale_next), feature_map_size * math.sqrt(boxes_scale_current * boxes_scale_next)])
+                boxes_shapes.append([feature_map_shape[1] * boxes_scale_next, feature_map_shape[1] * boxes_scale_next])
 
             # convert to numpy array
-            boxes_width_height = np.array(boxes_width_height)
+            boxes_shapes = np.array(boxes_shapes)
 
-            # calculate centers coordinates for the boxes
-            # there is a center for each pixel of the feature map
-            boxes_center_x = np.linspace(start=self.centers_padding_from_borders, stop=feature_map_shape[1] - 1 - self.centers_padding_from_borders, num=feature_map_shape[1])
-            boxes_center_y = np.linspace(start=self.centers_padding_from_borders, stop=feature_map_shape[0] - 1 - self.centers_padding_from_borders, num=feature_map_shape[0])
+            # for each pixel of the feature map calculate centers coordinates for the boxes
+            # note: pixels coordinates should be threated as image indexes, be careful with +-1 operations
+            boxes_center_x = np.linspace(start=self.centers_padding_from_borders, stop=feature_map_shape[1] - 1.0 - self.centers_padding_from_borders, num=feature_map_shape[1])
+            boxes_center_y = np.linspace(start=self.centers_padding_from_borders, stop=feature_map_shape[0] - 1.0 - self.centers_padding_from_borders, num=feature_map_shape[0])
 
             # manipulate the arrays of centers to get outputs of shape (feature_map_shape_y, feature_map_shape_x, 1)
             boxes_center_x, boxes_center_y = np.meshgrid(boxes_center_x, boxes_center_y)
@@ -109,16 +109,15 @@ class DefaultBoundingBoxes:
             boxes_center_y = np.expand_dims(boxes_center_y, axis=-1)
             
             # prepare final output array with shape (feature_map_shape_y, feature_map_shape_x, number_of_boxes, 4)
-            # we end up with an array containing box coordinates for each aspect ratio (+1 optionally), for each pixel of the feature map
-            boxes = np.zeros((feature_map_shape[0], feature_map_shape[1], len(boxes_width_height), 4), dtype=np.float32)
+            # for each pixel in the feature map we will get corners coordinates (xmin, ymin, xmax, ymax) for all the default bounding boxes
+            boxes = np.zeros((feature_map_shape[0], feature_map_shape[1], len(boxes_shapes), 4), dtype=np.float32)
 
-            # populate the output array
+            # populate output array
             # assign to the last dimension the 4 values xmin, ymin, xmax, ymax (normalized between 0 and 1)
-            # note: pixels coordinates should be threated as indexes, be careful with +-1 operations
-            boxes[:, :, :, self._coordinates_indexes['xmin']] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) - boxes_width_height[:, 0] / 2.0) / (feature_map_shape[1] - 1.0)
-            boxes[:, :, :, self._coordinates_indexes['ymin']] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) - boxes_width_height[:, 1] / 2.0) / (feature_map_shape[0] - 1.0)
-            boxes[:, :, :, self._coordinates_indexes['xmax']] = (np.tile(boxes_center_x, (1, 1, len(boxes_width_height))) + boxes_width_height[:, 0] / 2.0) / (feature_map_shape[1] - 1.0)
-            boxes[:, :, :, self._coordinates_indexes['ymax']] = (np.tile(boxes_center_y, (1, 1, len(boxes_width_height))) + boxes_width_height[:, 1] / 2.0) / (feature_map_shape[0] - 1.0)
+            boxes[:, :, :, self._coordinates_indexes['xmin']] = (np.tile(boxes_center_x, (1, 1, len(boxes_shapes))) - boxes_shapes[:, 1] / 2.0) / feature_map_shape[1]
+            boxes[:, :, :, self._coordinates_indexes['ymin']] = (np.tile(boxes_center_y, (1, 1, len(boxes_shapes))) - boxes_shapes[:, 0] / 2.0) / feature_map_shape[0]
+            boxes[:, :, :, self._coordinates_indexes['xmax']] = (np.tile(boxes_center_x, (1, 1, len(boxes_shapes))) + boxes_shapes[:, 1] / 2.0) / feature_map_shape[1]
+            boxes[:, :, :, self._coordinates_indexes['ymax']] = (np.tile(boxes_center_y, (1, 1, len(boxes_shapes))) + boxes_shapes[:, 0] / 2.0) / feature_map_shape[0]
 
             # append boxes calculated for the feature map
             feature_maps_boxes.append(boxes)
