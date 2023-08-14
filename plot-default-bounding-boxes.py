@@ -20,6 +20,8 @@ default_bounding_boxes = boxes.DefaultBoundingBoxes(
 # scale default bounding boxes to image shape
 default_bounding_boxes.rescale_boxes_coordinates(image_shape=image_shape)
 s = default_bounding_boxes.get_boxes_coordinates_centroids('feature-maps')
+print(s[0][0, 0, 0, :])
+
 
 # create subplots and set figure size
 fig, axes = plt.subplots(nrows=fig_rows, ncols=fig_cols, constrained_layout=True)

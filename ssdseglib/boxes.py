@@ -13,7 +13,7 @@ class DefaultBoundingBoxes:
         """
         class for creating and managing default bounding boxes\n
         the default bounding boxes are created for each pixel in the given feature maps, as proposed by the single-shot-detector (ssd) object detection framework\n
-        the coordinates for the default bounding boxes are calculated during the class initialization, normalized/scaled in the range [0, 1] and stored internally\n
+        the coordinates for the default bounding boxes are calculated during the class initialization and stored internally\n
         if you want to get the coordinates for the default bounding boxes scaled to a custom image shape, call the appropriate class method
 
         Args:
@@ -76,7 +76,7 @@ class DefaultBoundingBoxes:
             List[np.ndarray]:
                 a list with length equal to the number of feature maps,
                 where each element it's a numpy.ndarray, with shape (feature map height, feature map width, number of default bounding boxes, 4 coordinates)\n
-                the coordinates are in the common corners format (xmin, ymin, xmax, ymax) and scaled between [0, 1]
+                the coordinates are returned in the common corners format (xmin, ymin, xmax, ymax)
         """
         # list to store boxes for each feature map
         feature_maps_boxes = []
@@ -135,13 +135,11 @@ class DefaultBoundingBoxes:
             boxes = np.zeros((feature_map_shape[0], feature_map_shape[1], len(boxes_shapes), 4), dtype=np.float32)
 
             # populate output array (convert the centroids coordinates to corners)
-            # assign to the last dimension the 4 values xmin, ymin, xmax, ymax (normalized between 0 and 1)
-            normalization_factor_x = feature_map_shape[1] - 1.0 if feature_map_shape[1] > 1.0 else 1.0
-            normalization_factor_y = feature_map_shape[0] - 1.0 if feature_map_shape[0] > 1.0 else 1.0
-            boxes[:, :, :, self._coordinates_indexes['xmin']] = (np.tile(boxes_center_x, (1, 1, len(boxes_shapes))) - (boxes_shapes[:, 1] - 1.0) / 2.0) / normalization_factor_x
-            boxes[:, :, :, self._coordinates_indexes['ymin']] = (np.tile(boxes_center_y, (1, 1, len(boxes_shapes))) - (boxes_shapes[:, 0] - 1.0) / 2.0) / normalization_factor_y
-            boxes[:, :, :, self._coordinates_indexes['xmax']] = (np.tile(boxes_center_x, (1, 1, len(boxes_shapes))) + (boxes_shapes[:, 1] - 1.0) / 2.0) / normalization_factor_x
-            boxes[:, :, :, self._coordinates_indexes['ymax']] = (np.tile(boxes_center_y, (1, 1, len(boxes_shapes))) + (boxes_shapes[:, 0] - 1.0) / 2.0) / normalization_factor_y
+            # assign to the last dimension the 4 values xmin, ymin, xmax, ymax
+            boxes[:, :, :, self._coordinates_indexes['xmin']] = (np.tile(boxes_center_x, (1, 1, len(boxes_shapes))) - (boxes_shapes[:, 1] - 1.0) / 2.0)
+            boxes[:, :, :, self._coordinates_indexes['ymin']] = (np.tile(boxes_center_y, (1, 1, len(boxes_shapes))) - (boxes_shapes[:, 0] - 1.0) / 2.0)
+            boxes[:, :, :, self._coordinates_indexes['xmax']] = (np.tile(boxes_center_x, (1, 1, len(boxes_shapes))) + (boxes_shapes[:, 1] - 1.0) / 2.0)
+            boxes[:, :, :, self._coordinates_indexes['ymax']] = (np.tile(boxes_center_y, (1, 1, len(boxes_shapes))) + (boxes_shapes[:, 0] - 1.0) / 2.0)
 
             # append boxes calculated for the feature map
             feature_maps_boxes.append(boxes)
@@ -157,15 +155,19 @@ class DefaultBoundingBoxes:
         """
         # reset the default bounding boxes coordinates
         self.feature_maps_boxes = []
-        feature_maps_boxes = self._feature_maps_boxes     
+        feature_maps_boxes = self._feature_maps_boxes
 
         # rescale the coordinates of the default bounding boxes for each feature map
-        for boxes in feature_maps_boxes:
-            # scale width
-            boxes[:, :, :, [self._coordinates_indexes['xmin'], self._coordinates_indexes['xmax']]] = boxes[:, :, :, [self._coordinates_indexes['xmin'], self._coordinates_indexes['xmax']]] * image_shape[1]
+        for boxes, feature_map_shape in zip(feature_maps_boxes, self.feature_maps_shapes):
+            # calculate rescale factors
+            rescale_factor_x = (image_shape[1] - 1) / (feature_map_shape[1] - 1 if feature_map_shape[1] > 1 else 1)
+            rescale_factor_y = (image_shape[0] - 1) / (feature_map_shape[0] - 1 if feature_map_shape[0] > 1 else 1)
+            
+            # scale width            
+            boxes[:, :, :, [self._coordinates_indexes['xmin'], self._coordinates_indexes['xmax']]] = boxes[:, :, :, [self._coordinates_indexes['xmin'], self._coordinates_indexes['xmax']]] * rescale_factor_x
 
             # scale height
-            boxes[:, :, :, [self._coordinates_indexes['ymin'], self._coordinates_indexes['ymax']]] = boxes[:, :, :, [self._coordinates_indexes['ymin'], self._coordinates_indexes['ymax']]] * image_shape[0]
+            boxes[:, :, :, [self._coordinates_indexes['ymin'], self._coordinates_indexes['ymax']]] = boxes[:, :, :, [self._coordinates_indexes['ymin'], self._coordinates_indexes['ymax']]] * rescale_factor_y
 
             # append to the default bounding boxes attribute
             self.feature_maps_boxes.append(boxes)
