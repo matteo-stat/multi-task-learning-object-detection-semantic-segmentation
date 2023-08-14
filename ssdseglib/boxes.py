@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from typing import Literal, Tuple, List
 
 class DefaultBoundingBoxes:
@@ -88,15 +89,16 @@ class DefaultBoundingBoxes:
             boxes_scale_next = self.boxes_scales[feature_map_index + 1]
 
             # calculate boxes shapes for each aspect ratio
-            # the output is a list of lists like [[height, width], ..., [height, width]]        
+            # the output is a list of lists like [[height, width], ..., [height, width]]
+            feature_map_size = min(feature_map_shape)
             boxes_shapes = [
-                [feature_map_shape[1] * boxes_scale_current / aspect_ratio, feature_map_shape[1] * boxes_scale_current]
+                [feature_map_size * boxes_scale_current / math.sqrt(aspect_ratio), feature_map_size * boxes_scale_current * math.sqrt(aspect_ratio)]
                 for aspect_ratio in feature_map_aspect_ratios
-            ]                
+            ]
 
-            # optionally add an additional square box, with a different scale, as proposed by the original ssd paper
+            # optionally add an additional square box, with a different scale, as proposed by original ssd paper
             if self.additional_square_box:
-                boxes_shapes.append([feature_map_shape[1] * boxes_scale_next, feature_map_shape[1] * boxes_scale_next])
+                boxes_shapes.append([feature_map_size * math.sqrt(boxes_scale_current * boxes_scale_next), feature_map_size * math.sqrt(boxes_scale_current * boxes_scale_next)])
 
             # convert to numpy array
             boxes_shapes = np.array(boxes_shapes)
