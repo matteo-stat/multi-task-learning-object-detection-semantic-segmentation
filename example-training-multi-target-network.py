@@ -2,20 +2,28 @@ import ssdseglib
 import json
 import tensorflow as tf
 
+# check gpu and set an higher memory limit
+gpus = tf.config.list_physical_devices('GPU')
+if gpus: 
+    tf.config.set_logical_device_configuration(gpus[0], [tf.config.LogicalDeviceConfiguration(memory_limit=7400)])
+logical_gpus = tf.config.list_logical_devices('GPU')
+print(len(gpus), "Physical GPU,", len(logical_gpus), "Logical GPUs")
+
 # global variables
 INPUT_IMAGE_SHAPE = (480, 640)
 SHUFFLE_BUFFER_SIZE = 512
-BATCH_SIZE = 16
+BATCH_SIZE = 8
 SEED = 1993
 
 # create default bounding boxes
 boxes_default = ssdseglib.boxes.DefaultBoundingBoxes(
     feature_maps_shapes=((30, 40), (15, 20), (8, 10), (4, 5)),
-    feature_maps_aspect_ratios=(1.0,),
     centers_padding_from_borders_percentage=0.025,
     boxes_scales=(0.2, 0.9),
     additional_square_box=True,  
 )
+
+# rescale default bounding boxes to input image shape
 boxes_default.rescale_boxes_coordinates(image_shape=INPUT_IMAGE_SHAPE)
 
 # create a data reader encoder
@@ -45,8 +53,28 @@ ds_train = (
     .prefetch(buffer_size=tf.data.AUTOTUNE)
 )
 
-# check if images are loaded fine
-for image_batch, targets_batch in ds_train.take(1):
-    for image_sample, mask_sample, labels_sample, boxes_sample in zip(image_batch, targets_batch['output-mask'], targets_batch['output-labels'], targets_batch['output-boxes']):
-        s=0
-        
+# define loss for segmentation
+def loss_mask(y_true, y_pred):
+    return tf.reduce_mean((y_pred**2))
+
+# define loss for classification
+def loss_labels(y_true, y_pred):
+    return tf.reduce_mean((y_pred))
+
+# defaine loss for regression
+def loss_boxes(y_true, y_pred):
+    return tf.reduce_mean((y_pred))
+
+
+model = ssdseglib.models.build_mobilenetv2_ssdseg(number_of_boxes_per_point=1, number_of_classes=4)
+
+# Compile the model with different loss functions for each output
+model.compile(
+    optimizer='adam',
+    loss={'output-mask': loss_mask, 'output-labels': loss_labels, 'output-boxes': loss_boxes},
+    loss_weights={'output-mask': 1.0, 'output-labels': 0.3, 'output-boxes': 0.3}
+)
+
+# Train the model using the dataset
+num_epochs = 3
+model.fit(ds_train, epochs=num_epochs)

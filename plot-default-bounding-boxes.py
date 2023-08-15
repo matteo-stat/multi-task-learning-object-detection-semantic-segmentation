@@ -11,10 +11,11 @@ fig_cols = 2
 
 # create default bounding boxes
 default_bounding_boxes = boxes.DefaultBoundingBoxes(
-    feature_maps_shapes=((30, 40), (15, 20), (7, 10), (3, 3)),
-    feature_maps_aspect_ratios=(1,),
+    feature_maps_shapes=((30, 40), (15, 20), (8, 10), (4, 5)),
+    feature_maps_aspect_ratios=((1.0,),(1.0,),(1.0,),(1.0,)),
     centers_padding_from_borders_percentage=0.025,
-    additional_square_box=False
+    boxes_scales=(0.1, 0.9),
+    additional_square_box=True,  
 )
 
 # scale default bounding boxes to image shape
