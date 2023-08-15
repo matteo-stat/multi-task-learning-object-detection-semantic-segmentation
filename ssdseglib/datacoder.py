@@ -332,7 +332,7 @@ class DataEncoderDecoder:
         # encode ground truth labels and bounding boxes, applying horizontal flip if needed
         labels, boxes = self._encode_ground_truth_labels_boxes(path_labels_boxes=path_labels_boxes, augment_with_horizontal_flip=augment_with_horizontal_flip)
 
-        return image, {'mask': mask, 'labels': labels, 'boxes': boxes}
+        return image, {'output-mask': mask, 'output-labels': labels, 'output-boxes': boxes}
     
     def decode_to_centroids(
             self,
