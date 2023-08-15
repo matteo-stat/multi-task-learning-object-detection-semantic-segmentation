@@ -1,5 +1,5 @@
-import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+# import os
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
 from typing import Tuple
 
@@ -289,123 +289,117 @@ def ssdlite_block(layer: tf.keras.layers.Layer, filters: int, output_channels: i
 
     return layer
 
+def build_mobilenetv2_ssdseg(number_of_boxes_per_point: int, number_of_classes: int):
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    # -> backbone input
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    # define the input
+    layer_input_backbone = tf.keras.Input(shape=(480, 640, 3), dtype=tf.float32, name='input')
 
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------
-# -> backbone input
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------
-layer_input_backbone = tf.keras.Input(shape=(480, 640, 3), dtype=tf.float32)
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    # -> backbone preprocessing
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    # rescale input values from [0, 255] to [-1, 1] (use scale=1./255 and offset=0.0 for rescaling to [0, 1])
+    layer = tf.keras.layers.Rescaling(scale=1./127.5, offset=-1, name='input-rescaling')(layer_input_backbone)
 
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    # -> backbone architecture
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    # the initial mobilenet-v2 sequence of blocks it's slightly different from the rest, so let's build it using the basic blocks (expand, depthwise and project)
+    # all the other sequences of blocks follow the same exact scheme, so the architecture can be built very easily
 
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------
-# -> backbone architecture
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------
-# the initial mobilenet-v2 sequence of blocks it's slightly different from the rest, so let's build it using the basic blocks (expand, depthwise and project)
-# all the other sequences of blocks follow the same exact scheme, so the architecture can be built very easily
+    # this is a counter used to give proper names to the network components
+    counter_blocks = 0
 
-# this is a counter used to give proper names to the network components
-counter_blocks = 0
+    # the initial expand block apply 32 convolutional filters to the input, using kernel size 3 and strides 2
+    layer = mobilenetv2_block_expand(layer=layer, channels=32, kernel_size=3, strides=2, counter_blocks=counter_blocks)
 
-# the initial expand block apply 32 convolutional filters to the input, using kernel size 3 and strides 2
-layer = mobilenetv2_block_expand(layer=layer_input_backbone, channels=32, kernel_size=3, strides=2, counter_blocks=counter_blocks)
+    # the initial depthwise block apply a depthwise convolution (one filter per channel) with strides 1
+    layer = mobilenetv2_block_depthwise(layer=layer, strides=1, counter_blocks=counter_blocks)
 
-# the initial depthwise block apply a depthwise convolution (one filter per channel) with strides 1
-layer = mobilenetv2_block_depthwise(layer=layer, strides=1, counter_blocks=counter_blocks)
+    # the initial project block apply 16 pointwise convolutional filters
+    layer = mobilenetv2_block_project(layer=layer, channels=16, counter_blocks=counter_blocks)
 
-# the initial project block apply 16 pointwise convolutional filters
-layer = mobilenetv2_block_project(layer=layer, channels=16, counter_blocks=counter_blocks)
+    # sequences of blocks (expand-depthwise-project)
+    layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=24, n_repeat=2, strides=2, counter_blocks=counter_blocks)
+    layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=32, n_repeat=3, strides=2, counter_blocks=counter_blocks)
+    layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=64, n_repeat=4, strides=2, counter_blocks=counter_blocks)
+    layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=96, n_repeat=3, strides=1, counter_blocks=counter_blocks)
+    layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=160, n_repeat=3, strides=2, counter_blocks=counter_blocks)
+    layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=320, n_repeat=1, strides=1, counter_blocks=counter_blocks)
 
-# sequences of blocks (expand-depthwise-project)
-layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=24, n_repeat=2, strides=2, counter_blocks=counter_blocks)
-layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=32, n_repeat=3, strides=2, counter_blocks=counter_blocks)
-layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=64, n_repeat=4, strides=2, counter_blocks=counter_blocks)
-layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=96, n_repeat=3, strides=1, counter_blocks=counter_blocks)
-layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=160, n_repeat=3, strides=2, counter_blocks=counter_blocks)
-layer, counter_blocks = mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=320, n_repeat=1, strides=1, counter_blocks=counter_blocks)
+    # additional deptwhise separable convolution blocks for further reduce the feature map size
+    # these additional feature maps will be used for the object detection
+    counter_blocks += 1
+    name_prefix = f'backbone-block{counter_blocks}-'
+    layer = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=2, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}depthconv')(layer)        
+    layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}depthconv-batchnorm')(layer)
+    layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}depthconv-relu6')(layer)
+    layer = tf.keras.layers.Conv2D(filters=320, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}pointconv')(layer)
+    layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}pointconv-batchnorm')(layer)
+    layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}pointconv-relu6')(layer)
 
-# additional deptwhise separable convolution blocks for further reduce the feature map size
-# these additional feature maps will be used for the object detection
-counter_blocks += 1
-name_prefix = f'backbone-block{counter_blocks}-'
-layer = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=2, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}depthconv')(layer)        
-layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}depthconv-batchnorm')(layer)
-layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}depthconv-relu6')(layer)
-layer = tf.keras.layers.Conv2D(filters=320, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}pointconv')(layer)
-layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}pointconv-batchnorm')(layer)
-layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}pointconv-relu6')(layer)
+    counter_blocks += 1
+    name_prefix = f'backbone-block{counter_blocks}-'
+    layer = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=2, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}depthconv')(layer)        
+    layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}depthconv-batchnorm')(layer)
+    layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}depthconv-relu6')(layer)
+    layer = tf.keras.layers.Conv2D(filters=320, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}pointconv')(layer)
+    layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}pointconv-batchnorm')(layer)
+    layer_output_backbone = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}pointconv-relu6')(layer)
 
-counter_blocks += 1
-name_prefix = f'backbone-block{counter_blocks}-'
-layer = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=2, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}depthconv')(layer)        
-layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}depthconv-batchnorm')(layer)
-layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}depthconv-relu6')(layer)
-layer = tf.keras.layers.Conv2D(filters=320, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}pointconv')(layer)
-layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}pointconv-batchnorm')(layer)
-layer_output_backbone = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}pointconv-relu6')(layer)
+    # this is not the final model, just a temporary one, but it's very useful to extract layers by name from the backbone
+    model = tf.keras.Model(inputs=layer_input_backbone, outputs=layer_output_backbone)
 
-# this is not the final model, just a temporary one, but it's very useful to extract layers by name from the backbone
-model = tf.keras.Model(inputs=layer_input_backbone, outputs=layer_output_backbone)
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    # -> semantic segmentation head (deeplabv3+)
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    # the semantic segmentation encoder block starts from the latest backbone layer with output stride 16
+    layer_input_segmentation_encoder_ = model.get_layer(name='backbone-block13-expand-relu6').output
 
+    # the semantic segmentation decoder use an intermediate feature map for sharpen the output coming from the encoder
+    layer_input_segmentation_decoder_from_backbone = model.get_layer(name='backbone-block3-expand-relu6').output
 
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------
-# -> semantic segmentation head (deeplabv3+)
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------
-# the semantic segmentation encoder block starts from the latest backbone layer with output stride 16
-layer_input_segmentation_encoder_ = model.get_layer(name='backbone-block13-expand-relu6').output
+    # semantic segmentation encoder output
+    layer_input_segmentation_decoder_from_encoder = deeplabv3plus_encoder(layer=layer_input_segmentation_encoder_, filters=256, dilation_rates=(6, 12, 18))
 
-# the semantic segmentation decoder use an intermediate feature map for sharpen the output coming from the encoder
-layer_input_segmentation_decoder_from_backbone = model.get_layer(name='backbone-block3-expand-relu6').output
+    # semantic segmentation decoder output (mask)
+    layer_output_segmentation_mask = deeplabv3plus_decoder(
+        layer_encoder=layer_input_segmentation_decoder_from_encoder,
+        layer_backbone=layer_input_segmentation_decoder_from_backbone,
+        layer_output_height_width=tuple(layer_input_backbone.shape[1:3]),
+        filters_backbone=48,
+        filters_decoder=256,
+        filters_output=4
+    )
 
-# semantic segmentation encoder output
-layer_input_segmentation_decoder_from_encoder = deeplabv3plus_encoder(layer=layer_input_segmentation_encoder_, filters=256, dilation_rates=(6, 12, 18))
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    # -> object detection head (ssdlite)
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    # retrieve all the layers on which the ssd framework for object detection will be applied
+    # these feature maps have different shapes, for better handling multi scale objects
+    layer_input_object_detection_1 = model.get_layer(name='backbone-block13-expand-relu6').output
+    layer_input_object_detection_2 = model.get_layer(name='backbone-block16-project-batchnorm').output
+    layer_input_object_detection_3 = model.get_layer(name='backbone-block17-pointconv-relu6').output
+    layer_input_object_detection_4 = model.get_layer(name='backbone-block18-pointconv-relu6').output
 
-# semantic segmentation decoder output (mask)
-layer_output_segmentation_mask = deeplabv3plus_decoder(
-    layer_encoder=layer_input_segmentation_decoder_from_encoder,
-    layer_backbone=layer_input_segmentation_decoder_from_backbone,
-    layer_output_height_width=tuple(layer_input_backbone.shape[1:3]),
-    filters_backbone=48,
-    filters_decoder=256,
-    filters_output=4
-)
+    # object detection regression branch (boxes)
+    layer_output_object_detection_boxes_1 = ssdlite_block(layer=layer_input_object_detection_1, filters=number_of_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes1-')
+    layer_output_object_detection_boxes_2 = ssdlite_block(layer=layer_input_object_detection_2, filters=number_of_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes2-')
+    layer_output_object_detection_boxes_3 = ssdlite_block(layer=layer_input_object_detection_3, filters=number_of_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes3-')
+    layer_output_object_detection_boxes_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=number_of_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes4-')
+    layer_output_object_detection_boxes = tf.keras.layers.Concatenate(axis=1, name=f'output-boxes')([layer_output_object_detection_boxes_1, layer_output_object_detection_boxes_2, layer_output_object_detection_boxes_3, layer_output_object_detection_boxes_4])
 
+    # object detection classification branch (labels)
+    layer_output_object_detection_labels_1 = ssdlite_block(layer=layer_input_object_detection_1, filters=number_of_boxes_per_point*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels1-')
+    layer_output_object_detection_labels_2 = ssdlite_block(layer=layer_input_object_detection_2, filters=number_of_boxes_per_point*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels2-')
+    layer_output_object_detection_labels_3 = ssdlite_block(layer=layer_input_object_detection_3, filters=number_of_boxes_per_point*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels3-')
+    layer_output_object_detection_labels_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=number_of_boxes_per_point*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels4-')
+    layer_output_object_detection_labels = tf.keras.layers.Concatenate(axis=1, name=f'output-labels')([layer_output_object_detection_labels_1, layer_output_object_detection_labels_2, layer_output_object_detection_labels_3, layer_output_object_detection_labels_4])
 
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------
-# -> object detection head (ssdlite)
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------
-# retrieve all the layers on which the ssd framework for object detection will be applied
-# these feature maps have different shapes, for better handling multi scale objects
-layer_input_object_detection_1 = model.get_layer(name='backbone-block13-expand-relu6').output
-layer_input_object_detection_2 = model.get_layer(name='backbone-block16-project-batchnorm').output
-layer_input_object_detection_3 = model.get_layer(name='backbone-block17-pointconv-relu6').output
-layer_input_object_detection_4 = model.get_layer(name='backbone-block18-pointconv-relu6').output
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    # -> model with multiple outputs
+    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
+    model = tf.keras.Model(inputs=layer_input_backbone, outputs=[layer_output_segmentation_mask, layer_output_object_detection_labels, layer_output_object_detection_boxes])
 
-# this should be put somewhere :)
-# a class? a function?
-num_boxes_per_point = 5
-num_classes = 4
-
-# object detection regression branch (boxes)
-layer_output_object_detection_boxes_1 = ssdlite_block(layer=layer_input_object_detection_1, filters=num_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes1-')
-layer_output_object_detection_boxes_2 = ssdlite_block(layer=layer_input_object_detection_2, filters=num_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes2-')
-layer_output_object_detection_boxes_3 = ssdlite_block(layer=layer_input_object_detection_3, filters=num_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes3-')
-layer_output_object_detection_boxes_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=num_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes4-')
-layer_output_object_detection_boxes = tf.keras.layers.Concatenate(axis=1, name=f'output-boxes')([layer_output_object_detection_boxes_1, layer_output_object_detection_boxes_2, layer_output_object_detection_boxes_3, layer_output_object_detection_boxes_4])
-
-# object detection classification branch (labels)
-layer_output_object_detection_labels_1 = ssdlite_block(layer=layer_input_object_detection_1, filters=num_boxes_per_point*num_classes, output_channels=num_classes, name_prefix='object-detection-labels1-')
-layer_output_object_detection_labels_2 = ssdlite_block(layer=layer_input_object_detection_2, filters=num_boxes_per_point*num_classes, output_channels=num_classes, name_prefix='object-detection-labels2-')
-layer_output_object_detection_labels_3 = ssdlite_block(layer=layer_input_object_detection_3, filters=num_boxes_per_point*num_classes, output_channels=num_classes, name_prefix='object-detection-labels3-')
-layer_output_object_detection_labels_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=num_boxes_per_point*num_classes, output_channels=num_classes, name_prefix='object-detection-labels4-')
-layer_output_object_detection_labels = tf.keras.layers.Concatenate(axis=1, name=f'output-labels')([layer_output_object_detection_labels_1, layer_output_object_detection_labels_2, layer_output_object_detection_labels_3, layer_output_object_detection_labels_4])
-
-# remoe this later on
-# # adjust a bit the layer shape, otherwise it won't be possible to downsample by a factor of 2 keeping the aspect ratio
-# layer = tf.keras.layers.ZeroPadding2D(padding=((0, 1), (0, 0)), data_format='channels_last', name=f'backbone-block{counter_blocks}-shape-adjustment-zeropad')(layer)
-# layer = tf.keras.layers.DepthwiseConv2D(kernel_size=5, strides=1, padding='valid', depth_multiplier=1, use_bias=False, name=f'backbone-block{counter_blocks}-shape-adjustment-conv')(layer)
-
-
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------
-# -> model with multiple outputs
-# ----------------------------------------------------------------------------------------------------------------------------------------------------------
-model = tf.keras.Model(inputs=layer_input_backbone, outputs=[layer_output_segmentation_mask, layer_output_object_detection_labels, layer_output_object_detection_boxes])
-model.summary()
+    return model
