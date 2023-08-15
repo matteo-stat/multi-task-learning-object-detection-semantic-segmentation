@@ -11,7 +11,7 @@ fig_cols = 2
 
 # create default bounding boxes
 default_bounding_boxes = boxes.DefaultBoundingBoxes(
-    feature_maps_shapes=((30, 40), (15, 20), (7, 10), (1, 1)),
+    feature_maps_shapes=((30, 40), (15, 20), (8, 10), (4, 5)),
     centers_padding_from_borders_percentage=0.025,
     additional_square_box=True
 )
