@@ -309,10 +309,10 @@ class DataEncoderDecoder:
                 keep in mind that the targets dictionary keys should match the output layers names in the network, in order to get the proper "y_true" data in the corresponding loss
         """
 
-        # read the image, resize and scale value between 0 and 1
+        # read the image
         image = tf.io.read_file(path_image)
         image = tf.image.decode_png(image, channels=3)
-        image = tf.cast(image, dtype=tf.float32) / 255.0
+        image = tf.cast(image, dtype=tf.float32)
 
         # read the segmentation mask, ignoring transparency channel in the png, one hot encode the classes, squeeze out unwanted dimension
         mask = tf.io.read_file(path_mask)
@@ -327,7 +327,7 @@ class DataEncoderDecoder:
         # augmentation - horizontal flip
         if augment_with_horizontal_flip:
             image = tf.image.flip_left_right(image)
-            mask = tf.image.flip_left_right(mask)           
+            mask = tf.image.flip_left_right(mask)
 
         # encode ground truth labels and bounding boxes, applying horizontal flip if needed
         labels, boxes = self._encode_ground_truth_labels_boxes(path_labels_boxes=path_labels_boxes, augment_with_horizontal_flip=augment_with_horizontal_flip)
@@ -432,6 +432,6 @@ def augmentation_rgb_channels(image_batch: tf.Tensor, targets_batch: dict[str, t
     image_batch = tf.image.random_brightness(image_batch, max_delta=0.10)
 
     # clip values out of range
-    image_batch = tf.clip_by_value(image_batch, clip_value_min=0.0, clip_value_max=1.0)
+    image_batch = tf.clip_by_value(image_batch, clip_value_min=0.0, clip_value_max=255.0)
 
     return image_batch, targets_batch
