@@ -3,7 +3,7 @@ import random
 import json
 import csv
 import numpy as np
-from matplotlib import pyplot as plt, patches, get_backend
+from matplotlib import pyplot as plt, patches
 from PIL import Image
 
 # labels conversions
@@ -23,7 +23,8 @@ with open('data/train.json', 'r') as f:
     data = json.load(f)
 
 # sample training data
-for path_image, path_mask, path_labels_boxes in random.sample(data, k=5):
+# for path_image, path_mask, path_labels_boxes in random.sample(data, k=5):
+for path_image, path_mask, path_labels_boxes in data:
 
     # read labels boxes
     with open(path_labels_boxes, 'r') as f:
@@ -32,14 +33,14 @@ for path_image, path_mask, path_labels_boxes in random.sample(data, k=5):
     # read image
     image = Image.open(path_image)
     image = np.array(image)
-    image = image.astype(np.float32) / 255.0
+    image = image.astype(np.int32)
 
     # create the plot
     fig = plt.figure(figsize=(8, 6))
     plot.move_figure(fig=fig, x=0, y=0)
 
     # display the image
-    plt.imshow(image, vmin=0, vmax=1)
+    plt.imshow(image, vmin=0, vmax=255)
     plt.axis('off')
 
     # get the current plot object

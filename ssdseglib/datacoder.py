@@ -336,24 +336,24 @@ class DataEncoderDecoder:
     
     def decode_to_centroids(
             self,
-            offsets_center_x: tf.Tensor,
-            offsets_center_y: tf.Tensor,
-            offsets_width: tf.Tensor,
-            offsets_height: tf.Tensor,
-        ) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+            offsets_centroids: tf.Tensor,
+            output_decoded_centroids_separately: bool = False
+        ) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor] | tf.Tensor:
         """
-        decode standardized centroids offsets to centroids coordinates
-        offsets means it's assumed equal to zero
+        decode standardized centroids offsets to centroids coordinates, where offsets means it's assumed to be equal to zero\n
+        this method should used only to decode offsets for ground truth data encoded with this class\n
+        do not use this for decode predictions from a network!
 
         Args:
-            offsets_center_x (tf.Tensor): standardized offsets for center x centroids coordinates
-            offsets_center_y (tf.Tensor): standardized offsets for center y centroids coordinates
-            offsets_width (tf.Tensor): standardized offsets for width centroids coordinates
-            offsets_height (tf.Tensor): standardized offsets for height centroids coordinates
+            offsets_centroids (tf.Tensor): standardized offsets for centroids coordinates (center-x, center-y, width, height)
+            output_decoded_centroids_separately (bool): if True will return a tuple with tensors (center-x, center-y, width, height), otherwise will return a single tensor with 4 values on last axis
 
         Returns:
-            tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]: decoded centroids coordinates
+            tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor] | tf.Tensor: decoded centroids coordinates
         """
+ 
+        # split the offsets centroids coordinates
+        offsets_center_x, offsets_center_y, offsets_width, offsets_height = [tf.squeeze(offsets_coordinates) for offsets_coordinates in tf.split(value=offsets_centroids, num_or_size_splits=4, axis=-1)]
 
         # decode offsets to centroids coordinates
         center_x = offsets_center_x * self.std_offsets_center_x * self.width_boxes_default + self.center_x_boxes_default
@@ -361,36 +361,40 @@ class DataEncoderDecoder:
         width = (tf.math.exp(offsets_width * self.std_offsets_width) - 1.0) * self.width_boxes_default
         height = (tf.math.exp(offsets_height * self.std_offsets_height) - 1.0) * self.height_boxes_default
 
-        return center_x, center_y, width, height
+        # set to zero decoded coordinates for invalid boxes (default bounding boxes that were not matched to any ground truth)
+        valid_boxes_condition = tf.reduce_sum(tf.math.abs(offsets_centroids), axis=-1) > 0.0
+        valid_boxes = tf.where(condition=valid_boxes_condition, x=1.0, y=0.0)
+        center_x = center_x * valid_boxes
+        center_y = center_y * valid_boxes
+        width = width * valid_boxes
+        height = width * valid_boxes
+
+        # return data in desired format
+        if output_decoded_centroids_separately:
+            return center_x, center_y, width, height
+        else:
+            return tf.stack([center_x, center_y, width, height], axis=1)
 
     def decode_to_corners(
             self,
-            offsets_center_x: tf.Tensor,
-            offsets_center_y: tf.Tensor,
-            offsets_width: tf.Tensor,
-            offsets_height: tf.Tensor,
-        ) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+            offsets_centroids: tf.Tensor,
+            output_decoded_corners_separately: bool = False
+        ) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor] | tf.Tensor:
         """
-        decode standardized centroids offsets to corners coordinates
-        offsets means it's assumed equal to zero
+        decode standardized centroids offsets to corners coordinates, where offsets means it's assumed to be equal to zero\n
+        this method should used only to decode offsets for ground truth data encoded with this class\n
+        do not use this for decode predictions from a network!
 
         Args:
-            offsets_center_x (tf.Tensor): standardized offsets for center x centroids coordinates
-            offsets_center_y (tf.Tensor): standardized offsets for center y centroids coordinates
-            offsets_width (tf.Tensor): standardized offsets for width centroids coordinates
-            offsets_height (tf.Tensor): standardized offsets for height centroids coordinates
+            offsets_centroids (tf.Tensor): standardized offsets for centroids coordinates (center-x, center-y, width, height)
+            output_decoded_corners_separately (bool): if True will return a tuple with tensors (xmin, ymin, xmax, ymax), otherwise will return a single tensor with 4 values on last axis
 
         Returns:
-            tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]: decoded corners coordinates xmin, ymin, xmax, ymax
-        """
+            tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor] | tf.Tensor: decoded corners coordinates
+        """        
 
         # decode offsets to centroids coordinates
-        center_x, center_y, width, height = self.decode_to_centroids(
-            offsets_center_x=offsets_center_x,
-            offsets_center_y=offsets_center_y,
-            offsets_width=offsets_width,
-            offsets_height=offsets_height
-        )
+        center_x, center_y, width, height = self.decode_to_centroids(offsets_centroids=offsets_centroids, output_decoded_centroids_separately=True)
 
         # convert to corners coordinates
         xmin, ymin, xmax, ymax = self._coordinates_centroids_to_corners(
@@ -400,7 +404,20 @@ class DataEncoderDecoder:
             height=height
         )
 
-        return xmin, ymin, xmax, ymax
+        # set to zero decoded coordinates for invalid boxes (default bounding boxes that were not matched to any ground truth)
+        centroids = tf.stack([center_x, center_y, width, height], axis=1)
+        valid_boxes_condition = tf.reduce_sum(tf.math.abs(centroids), axis=-1) > 0.0
+        valid_boxes = tf.where(condition=valid_boxes_condition, x=1.0, y=0.0)
+        xmax = xmax * valid_boxes
+        xmin = xmin * valid_boxes
+        ymin = ymin * valid_boxes
+        ymax = ymax * valid_boxes
+
+        # return data in desired format
+        if output_decoded_corners_separately:
+            return xmin, ymin, xmax, ymax
+        else:
+            return tf.stack([xmin, ymin, xmax, ymax], axis=1)
 
 def augmentation_rgb_channels(image_batch: tf.Tensor, targets_batch: dict[str, tf.Tensor]) -> tuple[tf.Tensor, dict[str, tf.Tensor]]:
     """
