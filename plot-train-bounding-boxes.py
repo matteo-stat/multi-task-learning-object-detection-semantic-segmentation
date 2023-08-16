@@ -58,34 +58,3 @@ for path_image, path_mask, path_labels_boxes in random.sample(data, k=5):
 
     # show the plot
     plt.show()
-
-    # ------------------------------------------------------------
-    # test horizontal flip
-    # ------------------------------------------------------------
-    
-    # # create the plot
-    # fig = plt.figure(figsize=(8, 6))
-    # plot.move_figure(fig=fig, x=0, y=0)
-
-    # import tensorflow as tf
-
-    # # display the image
-    # plt.imshow(tf.image.flip_left_right(image), vmin=0, vmax=1)
-    # plt.axis('off')
-
-    # # get the current plot object
-    # ax = plt.gca()
-
-    # # plot bounding boxes
-    # for label, xmin, ymin, xmax, ymax in labels_boxes:
-    #     label = int(label)
-    #     xmin = image.shape[1] - float(xmin)
-    #     ymin = float(ymin)
-    #     xmax = image.shape[1] - float(xmax)
-    #     ymax = float(ymax)        
-    #     rect = patches.Rectangle((xmin, ymin), xmax - xmin + 1, ymax - ymin + 1, linewidth=1, edgecolor=label_code_to_color[label], facecolor='none')
-    #     ax.add_patch(rect)
-    #     plt.text(xmin, ymin, label_code_to_str[label], fontsize=8, color=label_code_to_color[label], verticalalignment='top')
-
-    # # show the plot
-    # plt.show()
