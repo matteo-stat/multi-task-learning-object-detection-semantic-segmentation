@@ -116,8 +116,7 @@ for image_batch, targets_batch in ds_train.take(1):
 
         # boxes subplot
         # keep only valid default bounding boxes (boxes that were matched to ground truth data)
-        # valid_samples = tf.reduce_sum(tf.math.abs(decoded_corners), axis=-1) > 0.0
-        valid_samples = tf.reduce_sum(labels_sample, axis=-1) > 0.0
+        valid_samples = tf.math.greater(tf.math.reduce_sum(labels_sample, axis=-1), 0.0)
 
         # keep valid default bounding boxes samples
         decoded_corners = data_reader_encoder.decode_to_corners(offsets_centroids=boxes_sample)

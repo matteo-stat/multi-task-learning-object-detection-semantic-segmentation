@@ -227,7 +227,7 @@ class DataEncoderDecoder:
         # note that the output shape will be (num ground truth boxes with iou > 0 with at least one default box, 2)
         # this matrix-like tensor contains indexes for default boxes and ground truth boxes
         indexes_match_ground_truth = tf.stack([tf.math.argmax(iou, axis=0, output_type=tf.dtypes.int32), tf.range(len(xmin_boxes_ground_truth))], axis=1)
-        indexes_match_ground_truth = tf.boolean_mask(tensor=indexes_match_ground_truth, mask=tf.math.greater(tf.reduce_max(iou, axis=0), 0.0), axis=0)
+        indexes_match_ground_truth = tf.boolean_mask(tensor=indexes_match_ground_truth, mask=tf.math.greater(tf.math.reduce_max(iou, axis=0), 0.0), axis=0)
 
         # step 2 - find the best match between each default box and all ground truth bounding boxes
         # note that the output shape will be (num default truth boxes with iou > threshold with at least one ground truth box, 2)
@@ -235,7 +235,7 @@ class DataEncoderDecoder:
         indexes_match_default = tf.stack([tf.range(len(self.xmin_boxes_default)), tf.math.argmax(iou, axis=1, output_type=tf.dtypes.int32)], axis=1)
         indexes_match_default = tf.boolean_mask(
             tensor=indexes_match_default,
-            mask=tf.math.greater(tf.reduce_max(iou, axis=1), self.iou_threshold),
+            mask=tf.math.greater(tf.math.reduce_max(iou, axis=1), self.iou_threshold),
             axis=0
         )
 
@@ -362,7 +362,7 @@ class DataEncoderDecoder:
         height = (tf.math.exp(offsets_height * self.std_offsets_height) - 1.0) * self.height_boxes_default
 
         # set to zero decoded coordinates for invalid boxes (default bounding boxes that were not matched to any ground truth)
-        valid_boxes_condition = tf.reduce_sum(tf.math.abs(offsets_centroids), axis=-1) > 0.0
+        valid_boxes_condition = tf.math.greater(tf.math.reduce_sum(tf.math.abs(offsets_centroids), axis=-1), 0.0)
         valid_boxes = tf.where(condition=valid_boxes_condition, x=1.0, y=0.0)
         center_x = center_x * valid_boxes
         center_y = center_y * valid_boxes
@@ -406,7 +406,7 @@ class DataEncoderDecoder:
 
         # set to zero decoded coordinates for invalid boxes (default bounding boxes that were not matched to any ground truth)
         centroids = tf.stack([center_x, center_y, width, height], axis=1)
-        valid_boxes_condition = tf.reduce_sum(tf.math.abs(centroids), axis=-1) > 0.0
+        valid_boxes_condition = tf.math.greater(tf.math.reduce_sum(tf.math.abs(centroids), axis=-1), 0.0)
         valid_boxes = tf.where(condition=valid_boxes_condition, x=1.0, y=0.0)
         xmax = xmax * valid_boxes
         xmin = xmin * valid_boxes
