@@ -353,7 +353,7 @@ class DataEncoderDecoder:
         """
  
         # split the offsets centroids coordinates
-        offsets_center_x, offsets_center_y, offsets_width, offsets_height = [tf.squeeze(offsets_coordinates) for offsets_coordinates in tf.split(value=offsets_centroids, num_or_size_splits=4, axis=-1)]
+        offsets_center_x, offsets_center_y, offsets_width, offsets_height = [tf.squeeze(offsets_coordinates) for offsets_coordinates in tf.split(value=offsets_centroids, num_or_size_splits=4, axis=1)]
 
         # decode offsets to centroids coordinates
         center_x = offsets_center_x * self.std_offsets_center_x * self.width_boxes_default + self.center_x_boxes_default
@@ -362,12 +362,12 @@ class DataEncoderDecoder:
         height = (tf.math.exp(offsets_height * self.std_offsets_height) - 1.0) * self.height_boxes_default
 
         # set to zero decoded coordinates for invalid boxes (default bounding boxes that were not matched to any ground truth)
-        valid_boxes_condition = tf.math.greater(tf.math.reduce_sum(tf.math.abs(offsets_centroids), axis=-1), 0.0)
+        valid_boxes_condition = tf.math.greater(tf.math.reduce_sum(tf.math.abs(offsets_centroids), axis=1), 0.0)
         valid_boxes = tf.where(condition=valid_boxes_condition, x=1.0, y=0.0)
         center_x = center_x * valid_boxes
         center_y = center_y * valid_boxes
         width = width * valid_boxes
-        height = width * valid_boxes
+        height = height * valid_boxes
 
         # return data in desired format
         if output_decoded_centroids_separately:
@@ -406,11 +406,11 @@ class DataEncoderDecoder:
 
         # set to zero decoded coordinates for invalid boxes (default bounding boxes that were not matched to any ground truth)
         centroids = tf.stack([center_x, center_y, width, height], axis=1)
-        valid_boxes_condition = tf.math.greater(tf.math.reduce_sum(tf.math.abs(centroids), axis=-1), 0.0)
+        valid_boxes_condition = tf.math.greater(tf.math.reduce_sum(tf.math.abs(centroids), axis=1), 0.0)
         valid_boxes = tf.where(condition=valid_boxes_condition, x=1.0, y=0.0)
-        xmax = xmax * valid_boxes
         xmin = xmin * valid_boxes
         ymin = ymin * valid_boxes
+        xmax = xmax * valid_boxes
         ymax = ymax * valid_boxes
 
         # return data in desired format
