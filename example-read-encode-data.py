@@ -81,25 +81,32 @@ i = 0
 for image_batch, targets_batch in ds_train.take(1):
     for image_sample, mask_sample, labels_sample, boxes_sample in zip(image_batch, targets_batch['output-mask'], targets_batch['output-labels'], targets_batch['output-boxes']):
         
-        # read labels boxes
+        # read labels boxes from csv file, this is for ground truth
         with open(path_labels_boxes_train[i], 'r') as f:
             labels_boxes = list(csv.reader(f))
 
-        # create subplots and set figure size
-        fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3,  constrained_layout=True)        
+        # create the needed subplots and set figure size
+        fig, ((ax1, ax3), (ax2, ax4)) = plt.subplots(nrows=2, ncols=2,  constrained_layout=True)        
         fig.set_size_inches(fig_size_width, int(fig_size_width / (INPUT_IMAGE_SHAPE[1] / INPUT_IMAGE_SHAPE[0])))
         ssdseglib.plot.move_figure(fig=fig, x=0, y=0)
         
-        # ground truth subplot
+        # ------------------------------------------------------------------------------------------------------------------
+        # ground truth - bounding boxes
+        # ------------------------------------------------------------------------------------------------------------------
+        # this is useful to see the original data, untouched by the tensorflow data pipeline
+
+        # read ground truth image        
         image = Image.open(path_images_train[i])
         image = np.array(image)
         image = image.astype(np.int32)
+
+        # setup the subplot
         ax1.set_aspect('equal')
         ax1.imshow(image, vmin=0, vmax=255)
         ax1.set_axis_off()
-        ax1.set_title(f'ground truth ({Path(path_images_train[i]).name})')
+        ax1.set_title(f'ground truth data ({Path(path_images_train[i]).name})')
 
-        # plot ground truth bounding boxes
+        # plot ground truth boxes
         for label, xmin, ymin, xmax, ymax in labels_boxes:
             label = int(label)
             xmin = float(xmin)
@@ -110,40 +117,52 @@ for image_batch, targets_batch in ds_train.take(1):
             ax1.add_patch(rect)
             ax1.text(xmin, ymin, label_code_to_str[label], fontsize=8, color=label_code_to_color[label], verticalalignment='top')        
 
-        # encoded mask subplot (drop the background channel)
+        # ------------------------------------------------------------------------------------------------------------------
+        # ground truth - semantic segmentation mask
+        # ------------------------------------------------------------------------------------------------------------------
+        # remove the background class and keep the other 3 classes on rgb channels
+        mask_ground_truth = tf.slice(mask_sample, begin=[0, 0, 1], size=[-1, -1, 3])
+
+        # setup the subplot
         ax2.set_aspect('equal')
-        mask_real = tf.slice(mask_sample, begin=[0, 0, 1], size=[-1, -1, 3])
-        ax2.imshow(mask_real, vmin=0.0, vmax=1.0)
+        ax2.imshow(mask_ground_truth, vmin=0.0, vmax=1.0)
         ax2.set_axis_off()
-        ax2.set_title('encoded mask')
+        ax2.set_title('segmentation mask after encoding')
 
-        # boxes subplot
-        # keep only valid default bounding boxes (boxes that were matched to ground truth data)
-        # use the background class one hot information
-        valid_samples = tf.math.equal(labels_sample[:, 0], 0.0)
+        # ------------------------------------------------------------------------------------------------------------------
+        # decoded boxes - show the matched boxes after the encoding decoding process
+        # ------------------------------------------------------------------------------------------------------------------
+        # this subplot it's very important because it can easily show if the encoding decoding process was done properly or not
+        # if some default bounding boxes were matched with ground truth boxes and properly encoded,
+        # then through decoding process we should get back coordinates for the original ground truth boxes
+        # basically the decoded boxes should match the ground truth ones
 
-        # keep valid default bounding boxes samples
-        decoded_corners = data_reader_encoder.decode_to_corners(offsets_centroids=boxes_sample)
-        valid_boxes_sample = tf.boolean_mask(
-            tensor=decoded_corners,
-            mask=valid_samples,
+        # use the one-hot-encoded labels to create a boolean vector for select items not related to background class
+        not_background = tf.math.equal(labels_sample[:, 0], 0.0)
+
+        # keep only decoded boxes not related to background class
+        decoded_boxes = data_reader_encoder.decode_to_corners(offsets_centroids=boxes_sample)
+        decoded_boxes_sample_not_background = tf.boolean_mask(
+            tensor=decoded_boxes,
+            mask=not_background,
             axis=0
         )
 
-        # keep valid default bounding boxes labels
+        # keep only corresponding labels not related to background class
         valid_labels_sample = tf.boolean_mask(
             tensor=labels_sample,
-            mask=valid_samples,
+            mask=not_background,
             axis=0
         )
 
+        # setup subplot
         ax3.set_aspect('equal')
         ax3.imshow(tf.cast(image_sample, tf.int32), vmin=0, vmax=255)
         ax3.set_axis_off()
-        ax3.set_title(f'encoded boxes ({valid_boxes_sample.shape[0]} boxes)')
+        ax3.set_title(f'decoded offsets after encoding ({decoded_boxes_sample_not_background.shape[0]} boxes)')
 
-        # plot bounding boxes
-        for labels_one_hot_encoded, (xmin, ymin, xmax, ymax) in zip(valid_labels_sample, valid_boxes_sample):
+        # plot decoded boxes
+        for labels_one_hot_encoded, (xmin, ymin, xmax, ymax) in zip(valid_labels_sample, decoded_boxes_sample_not_background):
             label = int(tf.argmax(labels_one_hot_encoded))
             xmin = float(xmin)
             ymin = float(ymin)
@@ -153,8 +172,44 @@ for image_batch, targets_batch in ds_train.take(1):
             ax3.add_patch(rect)
             ax3.text(xmin, ymin, label_code_to_str[label], fontsize=8, color=label_code_to_color[label], verticalalignment='top')
 
+        # ------------------------------------------------------------------------------------------------------------------
+        # default bounding boxe boxes - show the matched default bounding boxes
+        # ------------------------------------------------------------------------------------------------------------------
+        # this is just for fun :)
+
+        # keep default bounding boxes not related to background class 
+        default_boxes_sample_not_background = tf.concat(
+            values=[
+                tf.expand_dims(input=tf.boolean_mask(tensor=data_reader_encoder.xmin_boxes_default, mask=not_background, axis=0), axis=1),
+                tf.expand_dims(input=tf.boolean_mask(tensor=data_reader_encoder.ymin_boxes_default, mask=not_background, axis=0), axis=1),
+                tf.expand_dims(input=tf.boolean_mask(tensor=data_reader_encoder.xmax_boxes_default, mask=not_background, axis=0), axis=1),
+                tf.expand_dims(input=tf.boolean_mask(tensor=data_reader_encoder.ymax_boxes_default, mask=not_background, axis=0), axis=1),
+            ],
+            axis=1
+        )
+
+        # setup subplot
+        ax4.set_aspect('equal')
+        ax4.imshow(tf.cast(image_sample, tf.int32), vmin=0, vmax=255)
+        ax4.set_axis_off()
+        ax4.set_title(f'default boxes ({default_boxes_sample_not_background.shape[0]} boxes)')
+
+        # plot default bounding boxes
+        for labels_one_hot_encoded, (xmin, ymin, xmax, ymax) in zip(valid_labels_sample, default_boxes_sample_not_background):
+            label = int(tf.argmax(labels_one_hot_encoded))
+            xmin = float(xmin)
+            ymin = float(ymin)
+            xmax = float(xmax)
+            ymax = float(ymax)            
+            rect = patches.Rectangle((xmin, ymin), xmax - xmin + 1, ymax - ymin + 1, linewidth=1, edgecolor=label_code_to_color[label], facecolor='none')
+            ax4.add_patch(rect)
+            
+            # text overlaps a lot between default bounding boxes, maybe it's better to hide it on this subplot
+            # ax4.text(xmin, ymin, label_code_to_str[label], fontsize=8, color=label_code_to_color[label], verticalalignment='top')
+
         # show the figure
         plt.show()
 
         # sample counter (used for plot ground truth bounding boxes)
         i += 1
+    
