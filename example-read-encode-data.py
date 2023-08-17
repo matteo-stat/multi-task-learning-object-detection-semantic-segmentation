@@ -56,6 +56,9 @@ data_reader_encoder = ssdseglib.datacoder.DataEncoderDecoder(
 with open('data/train.json', 'r') as f:
     path_images_train, path_masks_train, path_labels_boxes_train = map(list, zip(*json.load(f)))
 
+# just for debugging
+# image, targets = data_reader_encoder.read_and_encode(path_images_train[0], path_masks_train[0], path_labels_boxes_train[0])
+
 # sample some data randomly
 random_sample = random.sample(range(len(path_images_train)), k=100)
 path_images_train = np.array(path_images_train)[random_sample]
@@ -116,7 +119,8 @@ for image_batch, targets_batch in ds_train.take(1):
 
         # boxes subplot
         # keep only valid default bounding boxes (boxes that were matched to ground truth data)
-        valid_samples = tf.math.greater(tf.math.reduce_sum(labels_sample, axis=1), 0.0)
+        # use the background class one hot information
+        valid_samples = tf.math.equal(labels_sample[:, 0], 0.0)
 
         # keep valid default bounding boxes samples
         decoded_corners = data_reader_encoder.decode_to_corners(offsets_centroids=boxes_sample)
