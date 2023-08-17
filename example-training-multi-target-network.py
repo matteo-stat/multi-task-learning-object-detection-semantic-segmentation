@@ -66,7 +66,7 @@ model = ssdseglib.models.build_mobilenetv2_ssdseg(number_of_boxes_per_point=6, n
 # Compile the model with different loss functions for each output
 model.compile(
     optimizer='adam',
-    loss={'output-mask': loss_mask, 'output-labels': loss_labels, 'output-boxes': ssdseglib.losses.localization_loss},
+    loss={'output-mask': loss_mask, 'output-labels': ssdseglib.losses.confidence_loss, 'output-boxes': ssdseglib.losses.localization_loss},
     loss_weights={'output-mask': 1.0, 'output-labels': 0.3, 'output-boxes': 0.3}
 )
 
