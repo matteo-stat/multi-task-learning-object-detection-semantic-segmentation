@@ -121,7 +121,8 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     if tf.math.equal(background_samples, tf.constant(0, dtype=tf.int32)):
         softmax_loss_background = tf.zeros_like(softmax_loss_not_background)
     else:
-        # flatten the loss data to 1d tensor, output shape it's (batch * total boxes, )
+        # flatten the loss data to 1d tensor, output shape it's (batch * total boxes,)
+        # this is the required format by the top_k tensorflow function
         softmax_loss_background_1d = tf.reshape(softmax_loss_background, shape=(-1,))
 
         # keep the previously calculated number of background samples with the highest loss
@@ -132,7 +133,7 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
             sorted=False
         )
 
-        # create a dummy tensor, with shape (batch * total boxes, )
+        # create a dummy tensor, with shape (batch * total boxes,)
         # it's equal to 1 at the indexes of the top-k background samples with highest loss, 0 elsewhere
         background_samples_to_keep = tf.scatter_nd(
             indices=tf.expand_dims(background_samples_to_keep, axis=1),
@@ -146,7 +147,7 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         background_samples_to_keep = tf.cast(background_samples_to_keep, dtype=tf.float32)
 
         # now that we have succesfully created a tensor indicator for the background samples to keep,
-        # we are able to mask out unwanted samples date for background class
+        # we are able to mask out unwanted samples data for background class
         softmax_loss_background = softmax_loss_background * background_samples_to_keep
 
         # reduce the loss by taking the sum (total loss) along boxes dimension, output shape it's (batch, )
