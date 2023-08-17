@@ -49,6 +49,7 @@ def localization_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     # unfortunately we already divided / averaged the loss by the number of classes different from background 
     # to avoid the default averaging along the batch dimension, we can multiply the loss by the batch size
     # in this way we get the sum of the smooth l1 loss along the batch dimension as a single scalar loss value
-    smooth_l1_loss = smooth_l1_loss / y_true.shape[0]
+    batch_size = tf.cast(tf.shape(y_true)[0], dtype=tf.float32)
+    smooth_l1_loss = smooth_l1_loss / batch_size
 
     return smooth_l1_loss
