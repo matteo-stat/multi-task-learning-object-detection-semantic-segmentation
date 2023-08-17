@@ -93,7 +93,7 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
     # calculate logarithm of predicted probabilities, accounting for zero value using a small value epsilon
     epsilon = tf.keras.backend.epsilon()
-    log_y_pred = tf.math.log(tf.math.maximum(y_pred, epsilon))
+    log_y_pred = tf.math.log(tf.clip_by_value(y_pred, clip_value_min=epsilon, clip_value_max=1-epsilon))
 
     # calculate the softmax loss for all classes, output shape it's (batch, total boxes)
     softmax_loss_all_classes = -tf.math.reduce_sum(y_true * log_y_pred, axis=-1)
