@@ -269,8 +269,19 @@ class DataEncoderDecoder:
         
         # ground truth data properly encoded
         # if a default bounding box was matched with ground truth, then proper labels and offsets centroids coordinates are assigned
-        # otherwise background labels and zero offsets centroid coordinates are assigned      
-        ground_truth_encoded = tf.zeros(shape=(len(self.xmin_boxes_default), self.num_classes + 4), dtype=tf.float32)
+        # otherwise background labels and zero offsets centroid coordinates are assigned
+        ground_truth_encoded = tf.concat(
+            values=[
+                # all default bounding boxes are initially assigned to background class
+                tf.ones(shape=(len(self.xmin_boxes_default), 1), dtype=tf.float32),
+                # the remaining classes and offsets coordinates are equal to zero, becase all default bounding boxes are initially assigned to background class
+                # note that the num_classes + 3 it's right, because we have previously created the class labels for background class
+                tf.zeros(shape=(len(self.xmin_boxes_default), self.num_classes + 3), dtype=tf.float32)
+            ],
+            axis=1
+        )        
+
+        # update with proper values the indexes where a default bounding box matched a ground truth box
         ground_truth_encoded = tf.tensor_scatter_nd_update(
             tensor=ground_truth_encoded,
             indices=tf.expand_dims(indexes_match[:, 0], axis=1),
