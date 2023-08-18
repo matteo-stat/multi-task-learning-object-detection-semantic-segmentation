@@ -53,28 +53,26 @@ ds_train = (
     .prefetch(buffer_size=tf.data.AUTOTUNE)
 )
 
-# define loss for segmentation
-def loss_mask(y_true, y_pred):
-    return tf.reduce_mean((y_pred**2))
-
-# define loss for classification
-def loss_labels(y_true, y_pred):
-    return tf.reduce_mean((y_pred))
-
-# defaine loss for regression
-def loss_boxes(y_true, y_pred):
-    return tf.reduce_mean((y_pred))
-
-
-model = ssdseglib.models.build_mobilenetv2_ssdseg(number_of_boxes_per_point=1, number_of_classes=4)
+model = ssdseglib.models.build_mobilenetv2_ssdseg(number_of_boxes_per_point=6, number_of_classes=4)
 
 # Compile the model with different loss functions for each output
 model.compile(
     optimizer='adam',
-    loss={'output-mask': loss_mask, 'output-labels': loss_labels, 'output-boxes': loss_boxes},
-    loss_weights={'output-mask': 1.0, 'output-labels': 0.3, 'output-boxes': 0.3}
+    loss={
+        'output-mask': tf.keras.losses.categorical_crossentropy,
+        'output-labels': ssdseglib.losses.confidence_loss,
+        'output-boxes': ssdseglib.losses.localization_loss
+    },
+    loss_weights={
+        'output-mask': 1.0,
+        'output-labels': 1.0,
+        'output-boxes': 1.0
+    },
+    metrics={
+        'output-mask': tf.keras.metrics.CategoricalAccuracy()
+    }
 )
 
 # Train the model using the dataset
-num_epochs = 3
+num_epochs = 2
 model.fit(ds_train, epochs=num_epochs)
