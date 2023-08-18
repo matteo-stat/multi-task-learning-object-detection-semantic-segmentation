@@ -236,7 +236,7 @@ def dice_square_loss(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Te
         # total of squares, along height and width dimensions, output shape it's (batch, number of classes)
         total_of_squares = tf.math.reduce_sum(tf.math.pow(y_true, 2) + tf.math.pow(y_pred, 2), axis=(1, 2))
 
-        # dice loss, with laplace smoothing for managing missing class values
+        # dice square loss, with laplace smoothing for managing missing class values
         loss_value = 1.0 - (2 * intersection + 1.0) / (total_of_squares + 1.0)
 
         # weighted average along classes dimension, output shape it's (batch,)
