@@ -24,6 +24,7 @@ num_classes = 4
 y_true = generate_ground_truth_mask(batch_size, height, width, num_classes)
 y_pred = generate_predicted_mask(batch_size, height, width, num_classes)
 
+# --------------------------------------------------------------------------------------------------
 dice_loss = ssdseglib.losses.dice_loss(classes_weights=[0., 0.4, 0.3, 0.3])
 dice_square_loss = ssdseglib.losses.dice_square_loss(classes_weights=[0., 0.4, 0.3, 0.3])
 cross_entropy_loss = ssdseglib.losses.cross_entropy_loss(classes_weights=[0., 0.4, 0.3, 0.3])
