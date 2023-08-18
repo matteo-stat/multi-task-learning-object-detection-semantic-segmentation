@@ -44,16 +44,7 @@ def localization_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     # if there are only background samples, then divide by 1
     smooth_l1_loss = smooth_l1_loss / tf.math.maximum(tf.math.reduce_sum(not_background, axis=-1), 1.0)
 
-    # tensorflow/keras automatically apply a reduction function to the loss along the batch dimension, in order to get a single scalar loss value
-    # the reduction function applied by default it's the mean (sum along batch dimension, then divide by batch size)
-    # unfortunately we already divided / averaged the loss by the number of classes different from background 
-    # to avoid the default averaging along the batch dimension, we can multiply the loss by the batch size
-    # in this way we get the sum of the smooth l1 loss along the batch dimension as a single scalar loss value
-    batch_size = tf.cast(tf.shape(y_true)[0], dtype=tf.float32)
-    smooth_l1_loss = smooth_l1_loss / batch_size
-
     return smooth_l1_loss
-
 
 def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     """
@@ -91,7 +82,7 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     # in order to do that, we'll split the calculation in two step, first not background classes, then background
     # finally we'll sum them up and return the loss at the end
 
-    # calculate logarithm of predicted probabilities, accounting for zero value using a small value epsilon
+    # calculate logarithm of predicted probabilities, accounting for extreme values
     epsilon = tf.keras.backend.epsilon()
     log_y_pred = tf.math.log(tf.clip_by_value(y_pred, clip_value_min=epsilon, clip_value_max=1-epsilon))
 
@@ -161,14 +152,6 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
     # divide the loss by the number of samples that are not background
     # if there are only background samples, then divide by 1
-    softmax_loss_balanced = softmax_loss_balanced / tf.math.maximum(tf.cast(not_background_samples, dtype=tf.float32), 1.0)
-
-    # tensorflow/keras automatically apply a reduction function to the loss along the batch dimension, in order to get a single scalar loss value
-    # the reduction function applied by default it's the mean (sum along batch dimension, then divide by batch size)
-    # unfortunately we already divided / averaged the loss by the number of classes different from background 
-    # to avoid the default averaging along the batch dimension, we can multiply the loss by the batch size
-    # in this way we get the sum of the smooth l1 loss along the batch dimension as a single scalar loss value
-    batch_size = tf.cast(tf.shape(y_true)[0], dtype=tf.float32)
-    softmax_loss_balanced = softmax_loss_balanced / batch_size
+    softmax_loss_balanced = softmax_loss_balanced / tf.math.maximum(tf.math.reduce_sum(not_background, axis=-1), 1.0)
 
     return softmax_loss_balanced
