@@ -23,8 +23,7 @@ with open('data/train.json', 'r') as f:
     data = json.load(f)
 
 # sample training data
-# for path_image, path_mask, path_labels_boxes in random.sample(data, k=5):
-for path_image, path_mask, path_labels_boxes in data:
+for path_image, path_mask, path_labels_boxes in random.sample(data, k=5):
 
     # read labels boxes
     with open(path_labels_boxes, 'r') as f:
