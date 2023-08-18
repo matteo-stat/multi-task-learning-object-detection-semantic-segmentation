@@ -349,7 +349,7 @@ class DataEncoderDecoder:
             self,
             offsets_centroids: tf.Tensor,
             output_decoded_centroids_separately: bool = False
-        ) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor] | tf.Tensor:
+        ) -> Union[tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor], tf.Tensor]:
         """
         decode standardized centroids offsets to centroids coordinates, where offsets means it's assumed to be equal to zero\n
         this method should used only to decode offsets for ground truth data encoded with this class\n
@@ -360,7 +360,7 @@ class DataEncoderDecoder:
             output_decoded_centroids_separately (bool): if True will return a tuple with tensors (center-x, center-y, width, height), otherwise will return a single tensor with 4 values on last axis
 
         Returns:
-            tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor] | tf.Tensor: decoded centroids coordinates
+            Union[tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor], tf.Tensor]: decoded centroids coordinates
         """
  
         # split the offsets centroids coordinates
@@ -390,7 +390,7 @@ class DataEncoderDecoder:
             self,
             offsets_centroids: tf.Tensor,
             output_decoded_corners_separately: bool = False
-        ) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor] | tf.Tensor:
+        ) -> Union[tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor], tf.Tensor]:
         """
         decode standardized centroids offsets to corners coordinates, where offsets means it's assumed to be equal to zero\n
         this method should used only to decode offsets for ground truth data encoded with this class\n
@@ -401,7 +401,7 @@ class DataEncoderDecoder:
             output_decoded_corners_separately (bool): if True will return a tuple with tensors (xmin, ymin, xmax, ymax), otherwise will return a single tensor with 4 values on last axis
 
         Returns:
-            tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor] | tf.Tensor: decoded corners coordinates
+            Union[tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor], tf.Tensor]: decoded corners coordinates
         """        
 
         # decode offsets to centroids coordinates
