@@ -1,9 +1,9 @@
 # import os
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
-from typing import Tuple
+from typing import Tuple, Union
 
-def mobilenetv2_block_expand(layer: tf.keras.layers.Layer, channels: int, counter_blocks: int, kernel_size: int | Tuple[int, int] = 1, strides: int | Tuple[int, int] = 1) -> tf.keras.layers.Layer:
+def mobilenetv2_block_expand(layer: tf.keras.layers.Layer, channels: int, counter_blocks: int, kernel_size: Union[int, Tuple[int, int]] = 1, strides: Union[int, Tuple[int, int]] = 1) -> tf.keras.layers.Layer:
     """
     mobilenet-v2 expand block, that consists in a separable convolution followed by batch normalization and relu6 activation\n
     this block increase the input channels by an expansion factor (channels argument expect that you pass the output channels, so input channels * expansion factor)\n
@@ -12,8 +12,8 @@ def mobilenetv2_block_expand(layer: tf.keras.layers.Layer, channels: int, counte
         layer (tf.keras.layers.Layer): input layer for this block
         channels (int): number of filters applied by the pointwise convolution, you should pass the output channels you want (input channels * expansion factor)
         counter_blocks (int): counter for the the blocks, used to give proper names to the layers
-        kernel_size (int | Tuple[int, int], optional): for a standard mobilenet-v2 expand block should be 1. Defaults to 1.
-        strides (int | Tuple[int, int], optional): for a standard mobilenet-v2 expand block should be 1. Defaults to 1.
+        kernel_size (Union[int, Tuple[int, int]], optional): for a standard mobilenet-v2 expand block should be 1. Defaults to 1.
+        strides (Union[int, Tuple[int, int]], optional): for a standard mobilenet-v2 expand block should be 1. Defaults to 1.
 
     Returns:
         tf.keras.layers.Layer: output layer from the mobilenet-v2 expand block
@@ -28,14 +28,14 @@ def mobilenetv2_block_expand(layer: tf.keras.layers.Layer, channels: int, counte
 
     return layer
 
-def mobilenetv2_block_depthwise(layer: tf.keras.layers.Layer, strides: int | Tuple[int, int], counter_blocks: int) -> tf.keras.layers.Layer:
+def mobilenetv2_block_depthwise(layer: tf.keras.layers.Layer, strides: Union[int, Tuple[int, int]], counter_blocks: int) -> tf.keras.layers.Layer:
     """
     mobilenet-v2 depthwise block, that consists in a depthwise convolution followed by batch normalization and relu6 activation\n
     this block apply the depthwise convolution, that consists of indipendent convolutions for each input channel\n
 
     Args:
         layer (tf.keras.layers.Layer): input layer for this block
-        strides (int | Tuple[int, int]): strides for the depthwise convolution, usually in mobilenet-v2 can be 1 or 2
+        strides (Union[int, Tuple[int, int]]): strides for the depthwise convolution, usually in mobilenet-v2 can be 1 or 2
         counter_blocks (int): counter for the the blocks, used to give proper names to the layers
 
     Returns:
@@ -74,7 +74,7 @@ def mobilenetv2_block_project(layer: tf.keras.layers.Layer, channels: int, count
 
     return layer
 
-def mobilenetv2_block_sequence(layer: tf.keras.layers.Layer, expansion_factor: int, channels_output: int, n_repeat: int, strides: int | Tuple[int, int], counter_blocks: int) -> tf.keras.layers.Layer:
+def mobilenetv2_block_sequence(layer: tf.keras.layers.Layer, expansion_factor: int, channels_output: int, n_repeat: int, strides: Union[int, Tuple[int, int]], counter_blocks: int) -> tf.keras.layers.Layer:
     """
     mobilenet-v2 sequence block, which consists in a sequence of expand, depthwise and project blocks\n
     the add operation (residual connection) it's applied only when a sequence of expand-depwthise-project it's repeated more than 1 time, as described by the paper\n
@@ -84,7 +84,7 @@ def mobilenetv2_block_sequence(layer: tf.keras.layers.Layer, expansion_factor: i
         expansion_factor (int): expansion factor used for the expand block (input channels are increased by a factor equal to expansion_factor)
         channels_output (int): number of channels in the output layer of this block
         n_repeat (int): number of times that the residual bottlenec layers (expand/depthwise/project) it's repeated
-        strides (int | Tuple[int, int]): following the paper architecture should be 1 or 2, but only the first depthwise convolution in a sequence will use strides greater than 1
+        strides (Union[int, Tuple[int, int]]): following the paper architecture should be 1 or 2, but only the first depthwise convolution in a sequence will use strides greater than 1
         counter_blocks (int): counter for the the blocks, used to give proper names to the layers
 
     Returns:
