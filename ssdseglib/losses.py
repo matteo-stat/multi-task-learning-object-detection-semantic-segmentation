@@ -1,4 +1,5 @@
 import tensorflow as tf
+from typing import List, Callable
 
 def localization_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     """
@@ -55,7 +56,7 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
     Args:
         y_true (tf.Tensor): ground truth
-        y_pred (tf.Tensor): predictions
+        y_pred (tf.Tensor): predictions, expressed as probabilities
 
     Returns:
         tf.Tensor: a tensor with a single scalar loss value per batch item, output shape it's (batch,)
@@ -155,3 +156,136 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     softmax_loss_balanced = softmax_loss_balanced / tf.math.maximum(tf.math.reduce_sum(not_background, axis=-1), 1.0)
 
     return softmax_loss_balanced
+
+def dice_loss(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
+    """
+    dice loss, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
+    you must pass some weights for you classes, and they must sum up to 1 (otherwise the calculation of the loss won't be right)\n
+    predictions must be passed as probabilities
+
+    Args:
+        classes_weights (List[float]): weights for your classes, they must sum up to 1 (otherwise the calculation of the loss won't be right)
+
+    Returns:
+        Callable[[tf.Tensor, tf.Tensor], tf.Tensor]: the function for calculating the weighted dice loss
+    """
+
+    classes_weights = tf.constant(classes_weights, dtype=tf.float32, shape=(1, len(classes_weights)))
+
+    def loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+        """
+        dice loss, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
+        it return a single scalar loss value per batch item, which is a weighted average of the classes losses
+
+        Args:
+            y_true (tf.Tensor): ground truth
+            y_pred (tf.Tensor): predictions, expressed as probabilities
+
+        Returns:
+            tf.Tensor: a tensor with a single scalar loss value per batch item, output shape it's (batch,)
+        """
+        
+        # intersection area, along height and width dimensions, output shape it's (batch, number of classes)
+        intersection = tf.math.reduce_sum(y_true * y_pred, axis=(1, 2))
+
+        # total area, along height and width dimensions, output shape it's (batch, number of classes)
+        total = tf.math.reduce_sum(y_true + y_pred, axis=(1, 2))
+
+        # dice loss, with laplace smoothing for managing missing class values
+        loss_value = 1.0 - (2 * intersection + 1.0) / (total + 1.0)
+
+        # weighted average along classes dimension, output shape it's (batch,)
+        loss_value = loss_value * classes_weights
+        loss_value = tf.reduce_sum(loss_value, axis=-1)
+
+        return loss_value
+    
+    return loss
+
+def dice_square_loss(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
+    """
+    dice square loss, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
+    you must pass some weights for you classes, and they must sum up to 1 (otherwise the calculation of the loss won't be right)\n
+    predictions must be passed as probabilities
+
+    Args:
+        classes_weights (List[float]): weights for your classes, they must sum up to 1 (otherwise the calculation of the loss won't be right)
+
+    Returns:
+        Callable[[tf.Tensor, tf.Tensor], tf.Tensor]: the function for calculating the weighted dice square loss
+    """
+
+    classes_weights = tf.constant(classes_weights, dtype=tf.float32, shape=(1, len(classes_weights)))
+
+    def loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+        """
+        dice square loss, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
+        it return a single scalar loss value per batch item, which is a weighted average of the classes losses
+
+        Args:
+            y_true (tf.Tensor): ground truth
+            y_pred (tf.Tensor): predictions, expressed as probabilities
+
+        Returns:
+            tf.Tensor: a tensor with a single scalar loss value per batch item, output shape it's (batch,)
+        """
+        
+        # intersection area, along height and width dimensions, output shape it's (batch, number of classes)
+        intersection = tf.math.reduce_sum(y_true * y_pred, axis=(1, 2))
+
+        # total of squares, along height and width dimensions, output shape it's (batch, number of classes)
+        total_of_squares = tf.math.reduce_sum(tf.math.pow(y_true, 2) + tf.math.pow(y_pred, 2), axis=(1, 2))
+
+        # dice loss, with laplace smoothing for managing missing class values
+        loss_value = 1.0 - (2 * intersection + 1.0) / (total_of_squares + 1.0)
+
+        # weighted average along classes dimension, output shape it's (batch,)
+        loss_value = loss_value * classes_weights
+        loss_value = tf.reduce_sum(loss_value, axis=-1)
+
+        return loss_value
+    
+    return loss
+
+def cross_entropy_loss(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
+    """
+    cross entropy / softmax loss, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
+    you must pass some weights for you classes, and they must sum up to 1 (otherwise the calculation of the loss won't be right)\n
+    predictions must be passed as probabilities
+
+    Args:
+        classes_weights (List[float]): weights for your classes, they must sum up to 1 (otherwise the calculation of the loss won't be right)
+
+    Returns:
+        Callable[[tf.Tensor, tf.Tensor], tf.Tensor]: the function for calculating the weighted cross entropy loss
+    """
+
+    classes_weights = tf.constant(classes_weights, dtype=tf.float32, shape=(1, len(classes_weights)))
+
+    def loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+        """
+        cross entropy / softmax, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
+        it return a single scalar loss value per batch item, which is a weighted average of the classes losses
+
+        Args:
+            y_true (tf.Tensor): ground truth
+            y_pred (tf.Tensor): predictions, expressed as probabilities
+
+        Returns:
+            tf.Tensor: a tensor with a single scalar loss value per batch item, output shape it's (batch,)
+        """
+        
+        # calculate logarithm of predicted probabilities, accounting for extreme values
+        epsilon = tf.keras.backend.epsilon()
+        log_y_pred = tf.math.log(tf.clip_by_value(y_pred, clip_value_min=epsilon, clip_value_max=1-epsilon))
+
+        # calculate the softmax loss for all classes, output shape it's (batch, number of classes)
+        loss_value = -tf.math.reduce_sum(y_true * log_y_pred, axis=(1, 2))
+
+        # weighted average along classes dimension, output shape it's (batch,)
+        loss_value = loss_value * classes_weights
+        loss_value = tf.reduce_sum(loss_value, axis=-1)
+
+        return loss_value
+    
+    return loss

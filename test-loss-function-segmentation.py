@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import ssdseglib
 
 def generate_ground_truth_mask(batch_size, height, width, num_classes):
     mask_labels = np.random.randint(0, num_classes, size=(batch_size, height, width))
@@ -23,12 +24,9 @@ num_classes = 4
 y_true = generate_ground_truth_mask(batch_size, height, width, num_classes)
 y_pred = generate_predicted_mask(batch_size, height, width, num_classes)
 
-
-classes_weights = tf.constant([0.25, 0.25, 0.25, 0.25], shape=(1, 4), dtype=tf.float32)
-intersection = tf.math.reduce_sum(y_true * y_pred, axis=(1, 2))
-total = tf.math.reduce_sum(y_true + y_pred, axis=(1, 2))
-dice_loss = 1.0 - (2 * intersection + 1.0) / (total + 1.0)
-dice_loss = (y_true + y_pred) * classes_weights
-dice_loss = tf.reduce_sum(dice_loss, axis=1)
-
-# return 1 - numerator / denominator
+dice_loss = ssdseglib.losses.dice_loss(classes_weights=[0., 0.4, 0.3, 0.3])
+dice_square_loss = ssdseglib.losses.dice_square_loss(classes_weights=[0., 0.4, 0.3, 0.3])
+cross_entropy_loss = ssdseglib.losses.cross_entropy_loss(classes_weights=[0., 0.4, 0.3, 0.3])
+print(dice_loss(y_true, y_pred))
+print(dice_square_loss(y_true, y_pred))
+print(cross_entropy_loss(y_true, y_pred))
