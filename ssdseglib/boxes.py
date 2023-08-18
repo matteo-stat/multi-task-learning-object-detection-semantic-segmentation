@@ -1,11 +1,11 @@
 import numpy as np
 import math
-from typing import Literal, Tuple, List
+from typing import Literal, Tuple, List, Union
 
 class DefaultBoundingBoxes:
     def __init__(self,
             feature_maps_shapes: Tuple[Tuple[int, int], ...],
-            feature_maps_aspect_ratios: Tuple[float | int, ...] | Tuple[Tuple[float | int, ...], ...] = (1, 2, 3, 1/2, 1/3),
+            feature_maps_aspect_ratios: Union[Tuple[Union[float, int], ...], Tuple[Tuple[Union[float, int], ...], ...]] = (1, 2, 3, 1/2, 1/3),
             boxes_scales: Tuple[float, float] = (0.2, 0.9),
             centers_padding_from_borders_percentage: float = 0.05,
             additional_square_box: bool = True,                 
@@ -18,7 +18,7 @@ class DefaultBoundingBoxes:
 
         Args:
             feature_maps_shapes (Tuple[Tuple[int, int], ...]): a list of shapes for the feature maps on which you want to generate the default bounding boxes
-            feature_maps_aspect_ratios (Tuple[float | int, ...] | Tuple[Tuple[float | int, ...], ...], optional): a tuple of aspect ratios if all feature maps share the same aspect ratios,
+            feature_maps_aspect_ratios (Union[Tuple[Union[float, int], ...], Tuple[Tuple[Union[float, int], ...], ...]], optional): a tuple of aspect ratios if all feature maps share the same aspect ratios,
             otherwise a Tuple of tuples, where you specify different aspect ratios for each feature map (aspect ratios are intended as width:height). Defaults to (1, 2, 3, 1/2, 1/3).
             boxes_scales (Tuple[float, float], optional): a tuple of minimum and maximum boxes scales,
             first feature map will have minimum boxes scale, last one maximum boxes scale, the middle ones have boxes scales linearly spaced. Defaults to (0.2, 0.9).
@@ -176,7 +176,7 @@ class DefaultBoundingBoxes:
             self,
             coordinates_type: Literal['xmin', 'ymin', 'xmax', 'ymax', 'corners'],
             coordinates_style: Literal['ssd', 'feature-maps']
-        ) -> Tuple[np.ndarray] | np.ndarray:
+        ) -> Union[Tuple[np.ndarray], np.ndarray]:
         """
         internal method that return the requested corners coordinates        
 
@@ -187,7 +187,7 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing default bounding boxes for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes as corners coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes as corners coordinates
         """
         # retrieve the requested coordinates using the proper indexes
         coordinates_indexes = (self._coordinates_indexes[coordinates_type], ) if isinstance(self._coordinates_indexes[coordinates_type], int) else self._coordinates_indexes[coordinates_type]
@@ -202,7 +202,7 @@ class DefaultBoundingBoxes:
 
         return coordinates
 
-    def get_boxes_coordinates_corners(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+    def get_boxes_coordinates_corners(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Union[Tuple[np.ndarray], np.ndarray]:
         """
         return all the default bounding boxes as corners coordinates, with the specified style        
 
@@ -211,11 +211,11 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing default bounding boxes for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes as corners coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes as corners coordinates
         """                
         return self._get_boxes_coordinates_corners_all_or_single(coordinates_type='corners', coordinates_style=coordinates_style)
     
-    def get_boxes_coordinates_xmin(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+    def get_boxes_coordinates_xmin(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Union[Tuple[np.ndarray], np.ndarray]:
         """
         return all the default bounding boxes xmin corners coordinates, with the specified style        
 
@@ -224,11 +224,11 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing default bounding boxes for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes xmin corners coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes xmin corners coordinates
         """          
         return self._get_boxes_coordinates_corners_all_or_single(coordinates_type='xmin', coordinates_style=coordinates_style)
 
-    def get_boxes_coordinates_ymin(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+    def get_boxes_coordinates_ymin(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Union[Tuple[np.ndarray], np.ndarray]:
         """
         return all the default bounding boxes ymin corners coordinates, with the specified style        
 
@@ -237,11 +237,11 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing default bounding boxes for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes ymin corners coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes ymin corners coordinates
         """ 
         return self._get_boxes_coordinates_corners_all_or_single(coordinates_type='ymin', coordinates_style=coordinates_style)
     
-    def get_boxes_coordinates_xmax(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+    def get_boxes_coordinates_xmax(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Union[Tuple[np.ndarray], np.ndarray]:
         """
         return all the default bounding boxes xmax corners coordinates, with the specified style        
 
@@ -250,11 +250,11 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing default bounding boxes for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes xmax corners coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes xmax corners coordinates
         """         
         return self._get_boxes_coordinates_corners_all_or_single(coordinates_type='xmax', coordinates_style=coordinates_style)
 
-    def get_boxes_coordinates_ymax(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+    def get_boxes_coordinates_ymax(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Union[Tuple[np.ndarray], np.ndarray]:
         """
         return all the default bounding boxes ymax corners coordinates, with the specified style        
 
@@ -263,7 +263,7 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing default bounding boxes for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes ymax corners coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes ymax corners coordinates
         """         
         return self._get_boxes_coordinates_corners_all_or_single(coordinates_type='ymax', coordinates_style=coordinates_style)
     
@@ -271,7 +271,7 @@ class DefaultBoundingBoxes:
             self,
             coordinates_type: Literal['center-x', 'center-y', 'width', 'height', 'centroids'],
             coordinates_style: Literal['ssd', 'feature-maps']
-        ) -> Tuple[np.ndarray] | np.ndarray:
+        ) -> Union[Tuple[np.ndarray], np.ndarray]:
         """
         internal method that return the requested centroids coordinates        
 
@@ -282,7 +282,7 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes as centroids coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes as centroids coordinates
         """        
 
         # get coordinates with feature-maps style and corners type
@@ -327,11 +327,11 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes as centroids coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes as centroids coordinates
         """         
         return self._get_boxes_coordinates_centroids_all_or_single(coordinates_type='centroids', coordinates_style=coordinates_style)
     
-    def get_boxes_coordinates_center_x(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+    def get_boxes_coordinates_center_x(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Union[Tuple[np.ndarray], np.ndarray]:
         """
         return all the default bounding boxes center-x centroids coordinates, with the specified style        
 
@@ -340,11 +340,11 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes as center-x centroids coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes as center-x centroids coordinates
         """         
         return self._get_boxes_coordinates_centroids_all_or_single(coordinates_type='center-x', coordinates_style=coordinates_style)
 
-    def get_boxes_coordinates_center_y(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+    def get_boxes_coordinates_center_y(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Union[Tuple[np.ndarray], np.ndarray]:
         """
         return all the default bounding boxes center-y centroids coordinates, with the specified style        
 
@@ -353,11 +353,11 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes as center-y centroids coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes as center-y centroids coordinates
         """      
         return self._get_boxes_coordinates_centroids_all_or_single(coordinates_type='center-y', coordinates_style=coordinates_style)
     
-    def get_boxes_coordinates_width(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+    def get_boxes_coordinates_width(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Union[Tuple[np.ndarray], np.ndarray]:
         """
         return all the default bounding boxes width centroids coordinates, with the specified style        
 
@@ -366,11 +366,11 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes as width centroids coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes as width centroids coordinates
         """      
         return self._get_boxes_coordinates_centroids_all_or_single(coordinates_type='width', coordinates_style=coordinates_style)
 
-    def get_boxes_coordinates_height(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Tuple[np.ndarray] | np.ndarray:
+    def get_boxes_coordinates_height(self, coordinates_style: Literal['ssd', 'feature-maps']) -> Union[Tuple[np.ndarray], np.ndarray]:
         """
         return all the default bounding boxes height centroids coordinates, with the specified style        
 
@@ -379,7 +379,7 @@ class DefaultBoundingBoxes:
             if 'feature-map' then return a list containing boxes centroids coordinates for each feature map
 
         Returns:
-            Tuple[np.ndarray] | np.ndarray: default bounding boxes as height centroids coordinates
+            Union[Tuple[np.ndarray], np.ndarray]: default bounding boxes as height centroids coordinates
         """      
         return self._get_boxes_coordinates_centroids_all_or_single(coordinates_type='height', coordinates_style=coordinates_style)
             
