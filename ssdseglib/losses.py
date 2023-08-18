@@ -1,5 +1,5 @@
-import tensorflow as tf
 from typing import List, Callable
+import tensorflow as tf
 
 def localization_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     """

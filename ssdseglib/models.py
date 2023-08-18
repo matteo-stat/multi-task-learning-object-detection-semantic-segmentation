@@ -1,7 +1,5 @@
-# import os
-# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-import tensorflow as tf
 from typing import Tuple, Union
+import tensorflow as tf
 
 def mobilenetv2_block_expand(layer: tf.keras.layers.Layer, channels: int, counter_blocks: int, kernel_size: Union[int, Tuple[int, int]] = 1, strides: Union[int, Tuple[int, int]] = 1) -> tf.keras.layers.Layer:
     """

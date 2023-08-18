@@ -1,3 +1,4 @@
+from typing import Union
 from numpy import ndarray
 import tensorflow as tf
 

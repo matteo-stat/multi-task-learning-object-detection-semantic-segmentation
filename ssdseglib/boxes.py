@@ -1,6 +1,6 @@
+from typing import Literal, Tuple, List, Union
 import numpy as np
 import math
-from typing import Literal, Tuple, List, Union
 
 class DefaultBoundingBoxes:
     def __init__(self,
