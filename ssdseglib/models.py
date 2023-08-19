@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 import tensorflow as tf
 
 def mobilenetv2_block_expand(layer: tf.keras.layers.Layer, channels: int, counter_blocks: int, kernel_size: Union[int, Tuple[int, int]] = 1, strides: Union[int, Tuple[int, int]] = 1) -> tf.keras.layers.Layer:
@@ -287,7 +287,11 @@ def ssdlite_block(layer: tf.keras.layers.Layer, filters: int, output_channels: i
 
     return layer
 
-def build_mobilenetv2_ssdseg(number_of_boxes_per_point: int, number_of_classes: int):
+def build_mobilenetv2_ssdseg(number_of_boxes_per_point: Union[int, List[int]], number_of_classes: int):
+
+    if isinstance(number_of_boxes_per_point, int):
+        number_of_boxes_per_point = (number_of_boxes_per_point,) * 4
+
     # ----------------------------------------------------------------------------------------------------------------------------------------------------------
     # -> backbone input
     # ----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -382,17 +386,17 @@ def build_mobilenetv2_ssdseg(number_of_boxes_per_point: int, number_of_classes: 
     layer_input_object_detection_4 = model.get_layer(name='backbone-block18-pointconv-relu6').output
 
     # object detection regression branch (boxes)
-    layer_output_object_detection_boxes_1 = ssdlite_block(layer=layer_input_object_detection_1, filters=number_of_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes1-')
-    layer_output_object_detection_boxes_2 = ssdlite_block(layer=layer_input_object_detection_2, filters=number_of_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes2-')
-    layer_output_object_detection_boxes_3 = ssdlite_block(layer=layer_input_object_detection_3, filters=number_of_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes3-')
-    layer_output_object_detection_boxes_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=number_of_boxes_per_point*4, output_channels=4, name_prefix='object-detection-boxes4-')
+    layer_output_object_detection_boxes_1 = ssdlite_block(layer=layer_input_object_detection_1, filters=number_of_boxes_per_point[0]*4, output_channels=4, name_prefix='object-detection-boxes1-')
+    layer_output_object_detection_boxes_2 = ssdlite_block(layer=layer_input_object_detection_2, filters=number_of_boxes_per_point[1]*4, output_channels=4, name_prefix='object-detection-boxes2-')
+    layer_output_object_detection_boxes_3 = ssdlite_block(layer=layer_input_object_detection_3, filters=number_of_boxes_per_point[2]*4, output_channels=4, name_prefix='object-detection-boxes3-')
+    layer_output_object_detection_boxes_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=number_of_boxes_per_point[3]*4, output_channels=4, name_prefix='object-detection-boxes4-')
     layer_output_object_detection_boxes = tf.keras.layers.Concatenate(axis=1, name=f'output-boxes')([layer_output_object_detection_boxes_1, layer_output_object_detection_boxes_2, layer_output_object_detection_boxes_3, layer_output_object_detection_boxes_4])
 
     # object detection classification branch (labels)
-    layer_output_object_detection_labels_1 = ssdlite_block(layer=layer_input_object_detection_1, filters=number_of_boxes_per_point*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels1-')
-    layer_output_object_detection_labels_2 = ssdlite_block(layer=layer_input_object_detection_2, filters=number_of_boxes_per_point*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels2-')
-    layer_output_object_detection_labels_3 = ssdlite_block(layer=layer_input_object_detection_3, filters=number_of_boxes_per_point*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels3-')
-    layer_output_object_detection_labels_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=number_of_boxes_per_point*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels4-')
+    layer_output_object_detection_labels_1 = ssdlite_block(layer=layer_input_object_detection_1, filters=number_of_boxes_per_point[0]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels1-')
+    layer_output_object_detection_labels_2 = ssdlite_block(layer=layer_input_object_detection_2, filters=number_of_boxes_per_point[1]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels2-')
+    layer_output_object_detection_labels_3 = ssdlite_block(layer=layer_input_object_detection_3, filters=number_of_boxes_per_point[2]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels3-')
+    layer_output_object_detection_labels_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=number_of_boxes_per_point[3]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels4-')
     layer_output_object_detection_labels = tf.keras.layers.Concatenate(axis=1, name=f'output-labels')([layer_output_object_detection_labels_1, layer_output_object_detection_labels_2, layer_output_object_detection_labels_3, layer_output_object_detection_labels_4])
 
     # ----------------------------------------------------------------------------------------------------------------------------------------------------------
