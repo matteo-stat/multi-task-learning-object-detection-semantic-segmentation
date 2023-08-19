@@ -51,7 +51,7 @@ for path_image, path_mask, path_labels_boxes in random.sample(data, k=5):
         xmin = float(xmin)
         ymin = float(ymin)
         xmax = float(xmax)
-        ymax = float(ymax)        
+        ymax = float(ymax)
         rect = patches.Rectangle((xmin, ymin), xmax - xmin + 1, ymax - ymin + 1, linewidth=1, edgecolor=label_code_to_color[label], facecolor='none')
         ax.add_patch(rect)
         plt.text(xmin, ymin, label_code_to_str[label], fontsize=8, color=label_code_to_color[label], verticalalignment='top')
