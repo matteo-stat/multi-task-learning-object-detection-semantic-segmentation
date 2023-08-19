@@ -63,8 +63,6 @@ fig.legend(aspect_ratios.keys(), loc='upper right')
 plt.tight_layout()
 plt.show()
 
-import numpy as np
-
 for key, value in aspect_ratios.items():
 
     # measures of central tendency
