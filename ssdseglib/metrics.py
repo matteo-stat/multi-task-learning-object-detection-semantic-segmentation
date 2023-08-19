@@ -99,10 +99,13 @@ def jaccard_iou_bounding_boxes(
         height = (tf.math.exp(height_offsets * standard_deviation_height_offsets) - 1.0) * height_boxes_default
         
         # keep only relevant decoded centroids coordinates (not background), this is consinstent with the localization loss calculation
+        # the maximum between and height and width it's not right from a conversion point of view status but this ensure iou <= 1.0
+        # the problem it's relevant only if the received offsets, when decoded to centroids, leads to invalid coordinates
+        # this can be the case with offsets output from a networks that's still learning/training, while it should never happen with ground truth data
         center_x = center_x * not_background
         center_y = center_y * not_background
-        width = width * not_background
-        height = height * not_background        
+        width = tf.math.maximum(0.0, width * not_background)
+        height = tf.math.maximum(0.0, height * not_background)
 
         # convert centroids coordinates to corners coordinates
         xmin = center_x - (width - 1.0) / 2.0
@@ -156,7 +159,9 @@ def jaccard_iou_bounding_boxes(
         boxes_area_intersection = width_intersection * heigth_intersection
 
         # iou for all the boxes, output shape it's (batch, total boxes)
-        metric_value = (boxes_area_intersection + 1.0) / (boxes_area_pred + boxes_area_true - boxes_area_intersection + 1.0)
+        # use a small value at denominator for avoid division by zero when dealing with boxes assigned to background
+        epsilon = tf.keras.backend.epsilon()
+        metric_value = (boxes_area_intersection) / (boxes_area_pred + boxes_area_true - boxes_area_intersection + epsilon)
 
         # reduce by taking the average iou for each batch sample along boxes dimension, output shape it's (batch,)
         metric_value = tf.reduce_sum(metric_value, axis=-1) / tf.reduce_sum(not_background, axis=-1)

@@ -39,6 +39,20 @@ data_reader_encoder = ssdseglib.datacoder.DataEncoderDecoder(
     augmentation_horizontal_flip=True
 )
 
+# metric for bounding boxes regression
+metric_boxes = ssdseglib.metrics.jaccard_iou_bounding_boxes(
+    center_x_boxes_default=data_reader_encoder.center_x_boxes_default,
+    center_y_boxes_default=data_reader_encoder.center_y_boxes_default,
+    width_boxes_default=data_reader_encoder.width_boxes_default,
+    height_boxes_default=data_reader_encoder.height_boxes_default,
+    standard_deviation_center_x_offsets=data_reader_encoder.standard_deviation_center_x_offsets,
+    standard_deviation_center_y_offsets=data_reader_encoder.standard_deviation_center_y_offsets,
+    standard_deviation_width_offsets=data_reader_encoder.standard_deviation_width_offsets,
+    standard_deviation_height_offsets=data_reader_encoder.standard_deviation_height_offsets
+)
+metric_mask = ssdseglib.metrics.jaccard_iou_segmentation_masks(classes_weights=[0.25, 0.25, 0.25, 0.25])
+
+
 # load metadata
 with open('data/train.json', 'r') as f:
     path_images_train, path_masks_train, path_labels_boxes_train = map(list, zip(*json.load(f)))
@@ -69,7 +83,8 @@ model.compile(
         'output-boxes': 1.0
     },
     metrics={
-        'output-mask': tf.keras.metrics.CategoricalAccuracy()
+        'output-mask': metric_mask,
+        'output-boxes': metric_boxes
     }
 )
 
