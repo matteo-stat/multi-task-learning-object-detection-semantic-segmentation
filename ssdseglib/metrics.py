@@ -59,7 +59,7 @@ def jaccard_iou_bounding_boxes(
     ) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     jaccard iou metric, for object detection bounding boxes with shape (batch, total boxes, 4)\n
-    predictions are expected to be offsets centroids coordinates
+    predictions are expected to be standardized offsets centroids coordinates
 
     Args:
         center_x_boxes_default (tf.Tensor): center-x for centroids coordinates of default bounding boxes
@@ -75,16 +75,16 @@ def jaccard_iou_bounding_boxes(
         Callable[[tf.Tensor, tf.Tensor], tf.Tensor]: the function for calculating the weighted jaccard iou bounding boxes metric
     """
 
-    def _decode_offsets_to_corners(offsets_centroids: tf.Tensor, not_background: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
+    def _decode_standardized_offsets(offsets_centroids: tf.Tensor, not_background: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
         """
-        decode bounding boxes offsets expressed in centroids coordinates (center_x, center_y, width, height) to corners coordinates
+        decode bounding boxes standardized offsets expressed in centroids coordinates (center_x_offsets, center_y_offsets, width_offsets, height_offsets)\n
 
         Args:
-            offsets_centroids (tf.Tensor): centroids offsets (center_x, center_y, width, height) with shape (batch, total boxes, 4)
+            offsets_centroids (tf.Tensor): centroids standardized offsets (center_x_offsets, center_y_offsets, width_offsets, height_offsets) with shape (batch, total boxes, 4)
             not_background (tf.Tensor): a tensor with shape (batch, total boxes) indicating if that box it's background or not
 
         Returns:
-            Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]: a tuple with the decoded corners coordinates
+            Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]: a tuple with the decoded corners coordinates plus width and height of boxes
         """
         # split offsets centroids for easier calculations
         center_x_offsets, center_y_offsets, width_offsets, height_offsets = [
@@ -99,13 +99,13 @@ def jaccard_iou_bounding_boxes(
         height = (tf.math.exp(height_offsets * standard_deviation_height_offsets) - 1.0) * height_boxes_default
         
         # keep only relevant decoded centroids coordinates (not background), this is consinstent with the localization loss calculation
-        # the maximum between and height and width it's not right from a conversion point of view status but this ensure iou <= 1.0
-        # the problem it's relevant only if the received offsets, when decoded to centroids, leads to invalid coordinates
-        # this can be the case with offsets output from a networks that's still learning/training, while it should never happen with ground truth data
+        # the maximum operation applied to width and height it's not right from a conversion point of view, but in this case will ensure iou <= 1.0
+        # the problem here it's that we can receive offsets from a network that's still learning/training, and once decoded, they results in invalid boxes (negative width or height)
+        # the maximum operation is irrelevant for ground truth data
         center_x = center_x * not_background
         center_y = center_y * not_background
-        width = tf.math.maximum(0.0, width * not_background)
-        height = tf.math.maximum(0.0, height * not_background)
+        width = tf.math.maximum(0.0, width) * not_background
+        height = tf.math.maximum(0.0, height) * not_background
 
         # convert centroids coordinates to corners coordinates
         xmin = center_x - (width - 1.0) / 2.0
@@ -139,13 +139,15 @@ def jaccard_iou_bounding_boxes(
         sum_of_coordinates_abs_value = tf.math.reduce_sum(tf.math.abs(y_true), axis=-1)
         not_background = tf.cast(tf.math.greater(sum_of_coordinates_abs_value, 0.0), dtype=tf.float32)
         
-        # decode predicted offsets to get corners coordinates
-        xmin_pred, ymin_pred, xmax_pred, ymax_pred, width_pred, height_pred = _decode_offsets_to_corners(offsets_centroids=y_pred, not_background=not_background)
+        # decode predicted offsets and get corners coordinates, plus width and height of boxes
+        xmin_pred, ymin_pred, xmax_pred, ymax_pred, width_pred, height_pred = _decode_standardized_offsets(offsets_centroids=y_pred, not_background=not_background)
 
-        # decode predicted offsets to get corners coordinates
-        xmin_true, ymin_true, xmax_true, ymax_true, width_true, height_true = _decode_offsets_to_corners(offsets_centroids=y_true, not_background=not_background)
+        # decode predicted offsets and get corners coordinates, plus width and height of boxes
+        xmin_true, ymin_true, xmax_true, ymax_true, width_true, height_true = _decode_standardized_offsets(offsets_centroids=y_true, not_background=not_background)
 
         # calculate corners coordinates of intersections between ground truth and predicted boxes
+        # it selects the maximum for xmin and ymin coordinates, the minimum for xmax and ymax coordinates
+        # also calculate width and height for intersection boxes
         xmin_intersection = tf.math.maximum(xmin_true, xmin_pred)
         ymin_intersection = tf.math.maximum(ymin_true, ymin_pred)
         xmax_intersection = tf.math.minimum(xmax_true, xmax_pred)
@@ -153,13 +155,13 @@ def jaccard_iou_bounding_boxes(
         width_intersection = tf.math.maximum(0.0, xmax_intersection - xmin_intersection + 1.0) * not_background
         heigth_intersection = tf.math.maximum(0.0, ymax_intersection - ymin_intersection + 1.0) * not_background
 
-        # boxes areas (the not_background factor it's needed to manage the height width conversion problem)
+        # boxes areas
         boxes_area_true = width_true * height_true
         boxes_area_pred = width_pred * height_pred
         boxes_area_intersection = width_intersection * heigth_intersection
 
         # iou for all the boxes, output shape it's (batch, total boxes)
-        # use a small value at denominator for avoid division by zero when dealing with boxes assigned to background
+        # use a small value at denominator for avoid division by zero when dealing with boxes assigned to background class
         epsilon = tf.keras.backend.epsilon()
         metric_value = (boxes_area_intersection) / (boxes_area_pred + boxes_area_true - boxes_area_intersection + epsilon)
 
