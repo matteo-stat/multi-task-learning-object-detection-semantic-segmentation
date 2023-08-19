@@ -207,13 +207,13 @@ class DataEncoderDecoder:
 
         # coordinates of intersections between each default bounding box and all ground truth bounding boxes
         # it selects the maximum for xmin and ymin coordinates, the minimum for xmax and ymax coordinates
-        xmin_boxes_intersection = tf.maximum(tf.expand_dims(self.xmin_boxes_default, axis=1), tf.transpose(xmin_boxes_ground_truth))
-        ymin_boxes_intersection = tf.maximum(tf.expand_dims(self.ymin_boxes_default, axis=1), tf.transpose(ymin_boxes_ground_truth))
-        xmax_boxes_intersection = tf.minimum(tf.expand_dims(self.xmax_boxes_default, axis=1), tf.transpose(xmax_boxes_ground_truth))
-        ymax_boxes_intersection = tf.minimum(tf.expand_dims(self.ymax_boxes_default, axis=1), tf.transpose(ymax_boxes_ground_truth))
+        xmin_boxes_intersection = tf.math.maximum(tf.expand_dims(self.xmin_boxes_default, axis=1), tf.transpose(xmin_boxes_ground_truth))
+        ymin_boxes_intersection = tf.math.maximum(tf.expand_dims(self.ymin_boxes_default, axis=1), tf.transpose(ymin_boxes_ground_truth))
+        xmax_boxes_intersection = tf.math.minimum(tf.expand_dims(self.xmax_boxes_default, axis=1), tf.transpose(xmax_boxes_ground_truth))
+        ymax_boxes_intersection = tf.math.minimum(tf.expand_dims(self.ymax_boxes_default, axis=1), tf.transpose(ymax_boxes_ground_truth))
 
         # area of intersection between each default bounding box and all ground truth bounding boxes
-        boxes_area_intersection = tf.maximum(0.0, xmax_boxes_intersection - xmin_boxes_intersection + 1.0) * tf.maximum(0.0, ymax_boxes_intersection - ymin_boxes_intersection + 1.0)
+        boxes_area_intersection = tf.math.maximum(0.0, xmax_boxes_intersection - xmin_boxes_intersection + 1.0) * tf.math.maximum(0.0, ymax_boxes_intersection - ymin_boxes_intersection + 1.0)
 
         # calculate intersection over union between each default bounding box and all ground truth bounding boxes
         # note that this is a matrix with shape (num default bounding boxes, num ground truth bounding boxes)
