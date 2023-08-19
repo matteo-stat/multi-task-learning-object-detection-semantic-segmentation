@@ -72,7 +72,13 @@ ds_train = (
 )
 
 # build the model
-model = ssdseglib.models.build_mobilenetv2_ssdseg(number_of_boxes_per_point=6, number_of_classes=4)
+model = ssdseglib.models.build_mobilenetv2_ssdseg(
+    number_of_boxes_per_point=[
+        len(aspect_ratios) + 1 if boxes_default.additional_square_box else 0
+        for aspect_ratios in boxes_default.feature_maps_aspect_ratios
+    ],
+    number_of_classes=4
+)
 
 # compile the model with different loss and metrics functions for each output
 model.compile(

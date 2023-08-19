@@ -63,22 +63,23 @@ fig.legend(aspect_ratios.keys(), loc='upper right')
 plt.tight_layout()
 plt.show()
 
-for key, value in aspect_ratios.items():
+# plot some summary of data
+for object_type, data in aspect_ratios.items():
 
     # measures of central tendency
-    mean = np.mean(value)
-    median = np.median(value)
-    q1 = np.percentile(value, 25)
-    q3 = np.percentile(value, 75)
+    mean = np.mean(data)
+    median = np.median(data)
+    q1 = np.percentile(data, 25)
+    q3 = np.percentile(data, 75)
     
     # measures of dispersion
-    min = np.amin(value)
-    max = np.amax(value)
-    range = np.ptp(value)
-    variance = np.var(value)
-    sd = np.std(value)
+    min = np.amin(data)
+    max = np.amax(data)
+    range = np.ptp(data)
+    variance = np.var(data)
+    sd = np.std(data)
 
-    print(f'\n------- {key} -------')
+    print(f'\n------- {object_type} -------')
     print(f'mean: {mean:.4f}')
     print(f'q1: {q1:.4f}')
     print(f'median: {median:.4f}')
