@@ -35,9 +35,27 @@ data_reader_encoder = ssdseglib.datacoder.DataEncoderDecoder(
     xmax_boxes_default=boxes_default.get_boxes_coordinates_xmax(coordinates_style='ssd'),
     ymax_boxes_default=boxes_default.get_boxes_coordinates_ymax(coordinates_style='ssd'),
     iou_threshold=0.5,
-    std_offsets=(0.1, 0.1, 0.2, 0.2),
+    standard_deviations_centroids_offsets=(0.1, 0.1, 0.2, 0.2),
     augmentation_horizontal_flip=True
 )
+
+# metrics
+classes_weights = [0.25, 0.25, 0.25, 0.25]
+metric_mask = ssdseglib.metrics.jaccard_iou_segmentation_masks(classes_weights=classes_weights)
+metric_labels = ssdseglib.metrics.categorical_accuracy(classes_weights=classes_weights)
+metric_boxes = ssdseglib.metrics.jaccard_iou_bounding_boxes(
+    center_x_boxes_default=data_reader_encoder.center_x_boxes_default,
+    center_y_boxes_default=data_reader_encoder.center_y_boxes_default,
+    width_boxes_default=data_reader_encoder.width_boxes_default,
+    height_boxes_default=data_reader_encoder.height_boxes_default,
+    standard_deviation_center_x_offsets=data_reader_encoder.standard_deviation_center_x_offsets,
+    standard_deviation_center_y_offsets=data_reader_encoder.standard_deviation_center_y_offsets,
+    standard_deviation_width_offsets=data_reader_encoder.standard_deviation_width_offsets,
+    standard_deviation_height_offsets=data_reader_encoder.standard_deviation_height_offsets
+)
+
+# losses
+loss_mask = ssdseglib.losses.dice_loss(classes_weights=classes_weights)
 
 # load metadata
 with open('data/train.json', 'r') as f:
@@ -53,13 +71,14 @@ ds_train = (
     .prefetch(buffer_size=tf.data.AUTOTUNE)
 )
 
+# build the model
 model = ssdseglib.models.build_mobilenetv2_ssdseg(number_of_boxes_per_point=6, number_of_classes=4)
 
-# Compile the model with different loss functions for each output
+# compile the model with different loss and metrics functions for each output
 model.compile(
     optimizer='adam',
     loss={
-        'output-mask': tf.keras.losses.categorical_crossentropy,
+        'output-mask': loss_mask,
         'output-labels': ssdseglib.losses.confidence_loss,
         'output-boxes': ssdseglib.losses.localization_loss
     },
@@ -69,10 +88,12 @@ model.compile(
         'output-boxes': 1.0
     },
     metrics={
-        'output-mask': tf.keras.metrics.CategoricalAccuracy()
+        'output-mask': metric_mask,
+        'output-labels': metric_labels,
+        'output-boxes': metric_boxes,
     }
 )
 
-# Train the model using the dataset
+# train the model using the dataset
 num_epochs = 2
 model.fit(ds_train, epochs=num_epochs)
