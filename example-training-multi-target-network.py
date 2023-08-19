@@ -35,7 +35,7 @@ data_reader_encoder = ssdseglib.datacoder.DataEncoderDecoder(
     xmax_boxes_default=boxes_default.get_boxes_coordinates_xmax(coordinates_style='ssd'),
     ymax_boxes_default=boxes_default.get_boxes_coordinates_ymax(coordinates_style='ssd'),
     iou_threshold=0.5,
-    std_offsets=(0.1, 0.1, 0.2, 0.2),
+    standard_deviations_centroids_offsets=(0.1, 0.1, 0.2, 0.2),
     augmentation_horizontal_flip=True
 )
 
