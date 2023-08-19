@@ -16,7 +16,7 @@ class DataEncoderDecoder:
             width_boxes_default: ndarray[float] = None,
             height_boxes_default: ndarray[float] = None,            
             iou_threshold: float = 0.5,
-            std_offsets: tuple[float] = (0.1, 0.1, 0.2, 0.2),
+            offsets_standard_deviations: tuple[float] = (0.1, 0.1, 0.2, 0.2),
             augmentation_horizontal_flip: bool = False,
         ) -> None:
         """
@@ -39,7 +39,7 @@ class DataEncoderDecoder:
             height_boxes_default (ndarray[float]): array of coordinates for heigh (centroids coordinates)
 
             iou_threshold (float, optional): minimum intersection over union threshold with ground truth boxes to consider a default bounding box not background. Defaults to 0.5.
-            std_offsets (tuple[float], optional): offsets standard deviation between ground truth and default bounding boxes, expected as (std_offsets_center_x, std_offsets_center_y, std_offsets_width, std_offsets_height). Defaults to (0.1, 0.1, 0.2, 0.2).
+            offsets_standard_deviations (tuple[float], optional): standard deviations for offsets between ground truth and default bounding boxes, expected as (offsets_standard_deviation_center_x, offsets_standard_deviation_center_y, offsets_standard_deviation_width, offsets_standard_deviation_height). Defaults to (0.1, 0.1, 0.2, 0.2).
 
             augmentation_horizontal_flip (tuple[bool, float], optional): specify if horizontal flip data augmentation should be performed and the transformation probability. Defaults to (False, 0.5).
         """
@@ -48,7 +48,7 @@ class DataEncoderDecoder:
         self.num_classes = num_classes
         self.image_height, self.image_width = image_shape
         self.iou_threshold = iou_threshold
-        self.std_offsets_center_x, self.std_offsets_center_y, self.std_offsets_width, self.std_offsets_height = std_offsets
+        self.offsets_standard_deviation_center_x, self.offsets_standard_deviation_center_y, self.offsets_standard_deviation_width, self.offsets_standard_deviation_height = offsets_standard_deviations
 
         # validation - only corners coordinates in input
         if all(centroids is None for centroids in (center_x_boxes_default, center_y_boxes_default, width_boxes_default, height_boxes_default)):
@@ -263,10 +263,10 @@ class DataEncoderDecoder:
 
         # calculate centroids offsets between ground truth and default boxes and standardize them
         # for standardization we are assuming that the mean zero and standard deviation given as input
-        offsets_center_x = (centroids_ground_truth_center_x - centroids_default_center_x) / centroids_default_width / self.std_offsets_center_x
-        offsets_center_y = (centroids_ground_truth_center_y - centroids_default_center_y) / centroids_default_height / self.std_offsets_center_y
-        offsets_width = tf.math.log(centroids_ground_truth_width / centroids_default_width + 1.0) / self.std_offsets_width
-        offsets_height = tf.math.log(centroids_ground_truth_height / centroids_default_height + 1.0) / self.std_offsets_height
+        offsets_center_x = (centroids_ground_truth_center_x - centroids_default_center_x) / centroids_default_width / self.offsets_standard_deviation_center_x
+        offsets_center_y = (centroids_ground_truth_center_y - centroids_default_center_y) / centroids_default_height / self.offsets_standard_deviation_center_y
+        offsets_width = tf.math.log(centroids_ground_truth_width / centroids_default_width + 1.0) / self.offsets_standard_deviation_width
+        offsets_height = tf.math.log(centroids_ground_truth_height / centroids_default_height + 1.0) / self.offsets_standard_deviation_height
         
         # ground truth data properly encoded
         # if a default bounding box was matched with ground truth, then proper labels and offsets centroids coordinates are assigned
@@ -368,10 +368,10 @@ class DataEncoderDecoder:
         offsets_center_x, offsets_center_y, offsets_width, offsets_height = [tf.squeeze(offsets_coordinates) for offsets_coordinates in tf.split(value=offsets_centroids, num_or_size_splits=4, axis=1)]
 
         # decode offsets to centroids coordinates
-        center_x = offsets_center_x * self.std_offsets_center_x * self.width_boxes_default + self.center_x_boxes_default
-        center_y = offsets_center_y * self.std_offsets_center_y * self.height_boxes_default + self.center_y_boxes_default
-        width = (tf.math.exp(offsets_width * self.std_offsets_width) - 1.0) * self.width_boxes_default
-        height = (tf.math.exp(offsets_height * self.std_offsets_height) - 1.0) * self.height_boxes_default
+        center_x = offsets_center_x * self.offsets_standard_deviation_center_x * self.width_boxes_default + self.center_x_boxes_default
+        center_y = offsets_center_y * self.offsets_standard_deviation_center_y * self.height_boxes_default + self.center_y_boxes_default
+        width = (tf.math.exp(offsets_width * self.offsets_standard_deviation_width) - 1.0) * self.width_boxes_default
+        height = (tf.math.exp(offsets_height * self.offsets_standard_deviation_height) - 1.0) * self.height_boxes_default
 
         # set to zero decoded coordinates for invalid boxes (default bounding boxes that were not matched to any ground truth)
         valid_boxes_condition = tf.math.greater(tf.math.reduce_sum(tf.math.abs(offsets_centroids), axis=1), 0.0)
