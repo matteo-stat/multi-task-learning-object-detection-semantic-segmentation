@@ -108,7 +108,7 @@ class DataEncoderDecoder:
             raise ValueError('you must pass all default bounding boxes centroids coordinates, or corners coordinates or both!') 
 
         # calculate area for default bounding boxes
-        self.area_boxes_default = tf.expand_dims(
+        self.boxes_area_default = tf.expand_dims(
             input=(self.ymax_boxes_default - self.ymin_boxes_default + 1.0) * (self.xmax_boxes_default - self.xmin_boxes_default + 1.0),
             axis=1
         )
@@ -203,7 +203,7 @@ class DataEncoderDecoder:
             xmin_boxes_ground_truth, xmax_boxes_ground_truth = self.image_width - xmax_boxes_ground_truth, self.image_width - xmin_boxes_ground_truth
 
         # calculate area for ground truth bounding boxes
-        area_boxes_ground_truth = (xmax_boxes_ground_truth - xmin_boxes_ground_truth + 1.0) * (ymax_boxes_ground_truth - ymin_boxes_ground_truth + 1.0)
+        boxes_area_ground_truth = (xmax_boxes_ground_truth - xmin_boxes_ground_truth + 1.0) * (ymax_boxes_ground_truth - ymin_boxes_ground_truth + 1.0)
 
         # coordinates of intersections between each default bounding box and all ground truth bounding boxes
         # it selects the maximum for xmin and ymin coordinates, the minimum for xmax and ymax coordinates
@@ -213,11 +213,11 @@ class DataEncoderDecoder:
         ymax_boxes_intersection = tf.minimum(tf.expand_dims(self.ymax_boxes_default, axis=1), tf.transpose(ymax_boxes_ground_truth))
 
         # area of intersection between each default bounding box and all ground truth bounding boxes
-        area_boxes_intersection = tf.maximum(0.0, xmax_boxes_intersection - xmin_boxes_intersection + 1.0) * tf.maximum(0.0, ymax_boxes_intersection - ymin_boxes_intersection + 1.0)
+        boxes_area_intersection = tf.maximum(0.0, xmax_boxes_intersection - xmin_boxes_intersection + 1.0) * tf.maximum(0.0, ymax_boxes_intersection - ymin_boxes_intersection + 1.0)
 
         # calculate intersection over union between each default bounding box and all ground truth bounding boxes
         # note that this is a matrix with shape (num default bounding boxes, num ground truth bounding boxes)
-        iou = area_boxes_intersection / (self.area_boxes_default + tf.transpose(area_boxes_ground_truth) - area_boxes_intersection)
+        iou = boxes_area_intersection / (self.boxes_area_default + tf.transpose(boxes_area_ground_truth) - boxes_area_intersection)
 
         # find best matches between ground truth and default bounding boxes with 3 steps, following original ssd paper suggestion
         # first one find a match for each ground truth box
