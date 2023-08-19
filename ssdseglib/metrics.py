@@ -1,7 +1,7 @@
 from typing import List, Callable
 import tensorflow as tf
 
-def jaccard_iou(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
+def jaccard_iou_segmentation_masks(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     jaccard iou metric, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
     you must pass some weights for you classes, and they must sum up to 1 (otherwise the calculation of the loss won't be right)\n
