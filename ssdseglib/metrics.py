@@ -19,7 +19,7 @@ def jaccard_iou_segmentation_masks(classes_weights: List[float]) -> Callable[[tf
     def metric(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """
         jaccard iou metric, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
-        it return a single scalar metric value per batch item, which is a weighted average of the classes losses
+        it return a single scalar metric value per batch item, which is a weighted average of the classes metrics
 
         Args:
             y_true (tf.Tensor): ground truth
@@ -58,7 +58,7 @@ def jaccard_iou_bounding_boxes(
         standard_deviation_height_offsets: float
     ) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
-    jaccard iou metric, for object detection bounding boxes with shape (batch, total boxes, 4)\n
+    jaccard iou metric, for object detection regression data with shape (batch, total boxes, 4)\n
     predictions are expected to be standardized offsets centroids coordinates
 
     Args:
@@ -123,7 +123,7 @@ def jaccard_iou_bounding_boxes(
         
     def metric(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """
-        jaccard iou metric, for object detection bounding boxes with shape (batch, total boxes, 4)\n
+        jaccard iou metric, for object detection regression data with shape (batch, total boxes, 4)\n
         it return a single scalar metric value per batch item, which is the average iou for the non-background boxes
 
         Args:
@@ -167,6 +167,52 @@ def jaccard_iou_bounding_boxes(
 
         # reduce by taking the average iou for each batch sample along boxes dimension, output shape it's (batch,)
         metric_value = tf.reduce_sum(metric_value, axis=-1) / tf.reduce_sum(not_background, axis=-1)
+
+        return metric_value
+    
+    return metric
+
+def categorical_accuracy(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
+    """
+    categorical accuracy metric, for object detection classification one-hot encoded data with shape (batch, total boxes, number of classes)\n
+    you must pass some weights for you classes, and they must sum up to 1 (otherwise the calculation of the loss won't be right)\n
+    predictions must be passed as probabilities, argmax it's internally applied to get classes predictions
+
+    Args:
+        classes_weights (List[float]): weights for your classes, they must sum up to 1 (otherwise the calculation of the loss won't be right)
+
+    Returns:
+        Callable[[tf.Tensor, tf.Tensor], tf.Tensor]: the function for calculating the weighted categorical accuracy metric
+    """
+
+    classes_weights = tf.constant(classes_weights, dtype=tf.float32, shape=(1, len(classes_weights)))
+
+    def metric(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+        """
+        categorical accuracy metric, for object detection classification one-hot encoded data with shape (batch, total boxes, number of classes)\n
+        it return a single scalar metric value per batch item, which is a weighted average of the classes metrics
+
+        Args:
+            y_true (tf.Tensor): ground truth
+            y_pred (tf.Tensor): predictions, expressed as probabilities
+
+        Returns:
+            tf.Tensor: a tensor with a single scalar metric value per batch item, output shape it's (batch,)
+        """
+        
+        # convert predicted classes probabilities to one-hot classes predictions
+        y_pred = tf.one_hot(tf.math.argmax(y_pred, axis=-1), depth=tf.shape(y_pred)[-1], axis=-1, dtype=tf.float32)
+
+        # calculate the true positives for each class along boxes dimension, output shape it's (batch, number of classes)
+        true_positives = tf.cast(tf.math.equal(y_pred, y_true), dtype=tf.float32)
+        true_positives = tf.math.reduce_sum(true_positives, axis=1)
+
+        # the total number of boxes it's equal to the number of samples for each class
+        number_of_samples_per_class = tf.cast(tf.shape(y_true)[1], dtype=tf.float32)
+
+        # calculate weighted average accuracy for each batch, output shape it's (batch,)
+        metric_value = true_positives / number_of_samples_per_class * classes_weights 
+        metric_value = tf.reduce_sum(metric_value, axis=-1)
 
         return metric_value
     

@@ -39,7 +39,10 @@ data_reader_encoder = ssdseglib.datacoder.DataEncoderDecoder(
     augmentation_horizontal_flip=True
 )
 
-# metric for bounding boxes regression
+# metrics
+classes_weights = [0.25, 0.25, 0.25, 0.25]
+metric_mask = ssdseglib.metrics.jaccard_iou_segmentation_masks(classes_weights=classes_weights)
+metric_labels = ssdseglib.metrics.categorical_accuracy(classes_weights=classes_weights)
 metric_boxes = ssdseglib.metrics.jaccard_iou_bounding_boxes(
     center_x_boxes_default=data_reader_encoder.center_x_boxes_default,
     center_y_boxes_default=data_reader_encoder.center_y_boxes_default,
@@ -50,8 +53,9 @@ metric_boxes = ssdseglib.metrics.jaccard_iou_bounding_boxes(
     standard_deviation_width_offsets=data_reader_encoder.standard_deviation_width_offsets,
     standard_deviation_height_offsets=data_reader_encoder.standard_deviation_height_offsets
 )
-metric_mask = ssdseglib.metrics.jaccard_iou_segmentation_masks(classes_weights=[0.25, 0.25, 0.25, 0.25])
 
+# losses
+loss_mask = ssdseglib.losses.dice_loss(classes_weights=classes_weights)
 
 # load metadata
 with open('data/train.json', 'r') as f:
@@ -67,13 +71,14 @@ ds_train = (
     .prefetch(buffer_size=tf.data.AUTOTUNE)
 )
 
+# build the model
 model = ssdseglib.models.build_mobilenetv2_ssdseg(number_of_boxes_per_point=6, number_of_classes=4)
 
-# Compile the model with different loss functions for each output
+# compile the model with different loss and metrics functions for each output
 model.compile(
     optimizer='adam',
     loss={
-        'output-mask': tf.keras.losses.categorical_crossentropy,
+        'output-mask': loss_mask,
         'output-labels': ssdseglib.losses.confidence_loss,
         'output-boxes': ssdseglib.losses.localization_loss
     },
@@ -84,10 +89,11 @@ model.compile(
     },
     metrics={
         'output-mask': metric_mask,
-        'output-boxes': metric_boxes
+        'output-labels': metric_labels,
+        'output-boxes': metric_boxes,
     }
 )
 
-# Train the model using the dataset
+# train the model using the dataset
 num_epochs = 2
 model.fit(ds_train, epochs=num_epochs)
