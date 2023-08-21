@@ -17,7 +17,7 @@ BATCH_SIZE = 8
 SEED = 1993
 
 # plot options
-fig_size_width = 11
+fig_size_width = 8
 
 # labels conversions
 label_code_to_str = {
@@ -121,11 +121,11 @@ for image_batch, targets_batch in ds_train.take(1):
         # ground truth - semantic segmentation mask
         # ------------------------------------------------------------------------------------------------------------------
         # remove the background class and keep the other 3 classes on rgb channels
-        mask_ground_truth = tf.slice(mask_sample, begin=[0, 0, 1], size=[-1, -1, 3])
+        mask_sample = tf.slice(mask_sample, begin=[0, 0, 1], size=[-1, -1, 3])
 
         # setup the subplot
         ax2.set_aspect('equal')
-        ax2.imshow(mask_ground_truth, vmin=0.0, vmax=1.0)
+        ax2.imshow(mask_sample, vmin=0.0, vmax=1.0)
         ax2.set_axis_off()
         ax2.set_title('segmentation mask after encoding')
 
