@@ -118,7 +118,7 @@ for image_batch, targets_batch in ds_train.take(1):
             ax1.text(xmin, ymin, label_code_to_str[label], fontsize=8, color=label_code_to_color[label], verticalalignment='top')        
 
         # ------------------------------------------------------------------------------------------------------------------
-        # ground truth - semantic segmentation mask
+        # encoded masks - semantic segmentation mask
         # ------------------------------------------------------------------------------------------------------------------
         # remove the background class and keep the other 3 classes on rgb channels
         mask_sample = tf.slice(mask_sample, begin=[0, 0, 1], size=[-1, -1, 3])
