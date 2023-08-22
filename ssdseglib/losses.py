@@ -1,6 +1,7 @@
 from typing import List, Callable
 import tensorflow as tf
 
+@tf.keras.saving.register_keras_serializable(package="ssdseglib", name="localization_loss")
 def localization_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     """
     localization loss, which is a slightly modified smooth l1 loss\n
@@ -47,6 +48,7 @@ def localization_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
     return smooth_l1_loss
 
+@tf.keras.saving.register_keras_serializable(package="ssdseglib", name="confidence_loss")
 def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     """
     confidence loss, which is a slightly modified softmax loss\n
@@ -157,6 +159,7 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
     return softmax_loss_balanced
 
+@tf.keras.saving.register_keras_serializable(package="ssdseglib", name="dice_loss")
 def dice_loss(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     dice loss, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
@@ -202,6 +205,7 @@ def dice_loss(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], 
     
     return loss
 
+@tf.keras.saving.register_keras_serializable(package="ssdseglib", name="dice_square_loss")
 def dice_square_loss(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     dice square loss, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
@@ -247,6 +251,7 @@ def dice_square_loss(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Te
     
     return loss
 
+@tf.keras.saving.register_keras_serializable(package="ssdseglib", name="cross_entropy_loss")
 def cross_entropy_loss(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     cross entropy / softmax loss, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n

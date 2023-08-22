@@ -1,6 +1,7 @@
 from typing import Tuple, List, Callable
 import tensorflow as tf
 
+@tf.keras.saving.register_keras_serializable(package="ssdseglib", name="jaccard_iou_segmentation_masks")
 def jaccard_iou_segmentation_masks(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     jaccard iou metric, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
@@ -47,6 +48,7 @@ def jaccard_iou_segmentation_masks(classes_weights: List[float]) -> Callable[[tf
     
     return metric
 
+@tf.keras.saving.register_keras_serializable(package="ssdseglib", name="jaccard_iou_bounding_boxes")
 def jaccard_iou_bounding_boxes(
         center_x_boxes_default: tf.Tensor,
         center_y_boxes_default: tf.Tensor,
@@ -172,6 +174,7 @@ def jaccard_iou_bounding_boxes(
     
     return metric
 
+@tf.keras.saving.register_keras_serializable(package="ssdseglib", name="categorical_accuracy")
 def categorical_accuracy(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     categorical accuracy metric, for object detection classification one-hot encoded data with shape (batch, total boxes, number of classes)\n
