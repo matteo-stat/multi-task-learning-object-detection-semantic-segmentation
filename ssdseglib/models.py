@@ -392,12 +392,14 @@ def build_mobilenetv2_ssdseg(number_of_boxes_per_point: Union[int, List[int]], n
     layer_output_object_detection_boxes_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=number_of_boxes_per_point[3]*4, output_channels=4, name_prefix='object-detection-boxes4-')
     layer_output_object_detection_boxes = tf.keras.layers.Concatenate(axis=1, name=f'output-boxes')([layer_output_object_detection_boxes_1, layer_output_object_detection_boxes_2, layer_output_object_detection_boxes_3, layer_output_object_detection_boxes_4])
 
+
     # object detection classification branch (labels)
     layer_output_object_detection_labels_1 = ssdlite_block(layer=layer_input_object_detection_1, filters=number_of_boxes_per_point[0]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels1-')
     layer_output_object_detection_labels_2 = ssdlite_block(layer=layer_input_object_detection_2, filters=number_of_boxes_per_point[1]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels2-')
     layer_output_object_detection_labels_3 = ssdlite_block(layer=layer_input_object_detection_3, filters=number_of_boxes_per_point[2]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels3-')
     layer_output_object_detection_labels_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=number_of_boxes_per_point[3]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-labels4-')
-    layer_output_object_detection_labels = tf.keras.layers.Concatenate(axis=1, name=f'output-labels')([layer_output_object_detection_labels_1, layer_output_object_detection_labels_2, layer_output_object_detection_labels_3, layer_output_object_detection_labels_4])
+    layer_output_object_detection_labels_concat = tf.keras.layers.Concatenate(axis=1, name=f'object-detection-labels-concat')([layer_output_object_detection_labels_1, layer_output_object_detection_labels_2, layer_output_object_detection_labels_3, layer_output_object_detection_labels_4])
+    layer_output_object_detection_labels = tf.keras.layers.Softmax(name='output-labels')(layer_output_object_detection_labels_concat)
 
     # ----------------------------------------------------------------------------------------------------------------------------------------------------------
     # -> model with multiple outputs
