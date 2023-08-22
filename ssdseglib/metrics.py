@@ -1,7 +1,7 @@
 from typing import Tuple, List, Callable
 import tensorflow as tf
 
-@tf.keras.saving.register_keras_serializable(package="ssdseglib", name="jaccard_iou_segmentation_masks")
+@tf.keras.utils.register_keras_serializable(name="jaccard_iou_segmentation_masks")
 def jaccard_iou_segmentation_masks(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     jaccard iou metric, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
@@ -17,7 +17,7 @@ def jaccard_iou_segmentation_masks(classes_weights: List[float]) -> Callable[[tf
 
     classes_weights = tf.constant(classes_weights, dtype=tf.float32, shape=(1, len(classes_weights)))
 
-    def metric(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+    def jaccard_iou_segmentation_masks_metric(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """
         jaccard iou metric, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
         it return a single scalar metric value per batch item, which is a weighted average of the classes metrics
@@ -46,9 +46,9 @@ def jaccard_iou_segmentation_masks(classes_weights: List[float]) -> Callable[[tf
 
         return metric_value
     
-    return metric
+    return jaccard_iou_segmentation_masks_metric
 
-@tf.keras.saving.register_keras_serializable(package="ssdseglib", name="jaccard_iou_bounding_boxes")
+@tf.keras.utils.register_keras_serializable(name="jaccard_iou_bounding_boxes")
 def jaccard_iou_bounding_boxes(
         center_x_boxes_default: tf.Tensor,
         center_y_boxes_default: tf.Tensor,
@@ -123,7 +123,7 @@ def jaccard_iou_bounding_boxes(
 
         return xmin, ymin, xmax, ymax, width, height
         
-    def metric(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+    def jaccard_iou_bounding_boxes_metric(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """
         jaccard iou metric, for object detection regression data with shape (batch, total boxes, 4)\n
         it return a single scalar metric value per batch item, which is the average iou for the non-background boxes
@@ -172,9 +172,9 @@ def jaccard_iou_bounding_boxes(
 
         return metric_value
     
-    return metric
+    return jaccard_iou_bounding_boxes_metric
 
-@tf.keras.saving.register_keras_serializable(package="ssdseglib", name="categorical_accuracy")
+@tf.keras.utils.register_keras_serializable(name="categorical_accuracy")
 def categorical_accuracy(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     categorical accuracy metric, for object detection classification one-hot encoded data with shape (batch, total boxes, number of classes)\n
@@ -190,7 +190,7 @@ def categorical_accuracy(classes_weights: List[float]) -> Callable[[tf.Tensor, t
 
     classes_weights = tf.constant(classes_weights, dtype=tf.float32, shape=(1, len(classes_weights)))
 
-    def metric(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+    def categorical_accuracy_metric(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """
         categorical accuracy metric, for object detection classification one-hot encoded data with shape (batch, total boxes, number of classes)\n
         it return a single scalar metric value per batch item, which is a weighted average of the classes metrics
@@ -219,4 +219,4 @@ def categorical_accuracy(classes_weights: List[float]) -> Callable[[tf.Tensor, t
 
         return metric_value
     
-    return metric
+    return categorical_accuracy_metric
