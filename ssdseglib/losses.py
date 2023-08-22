@@ -100,6 +100,10 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     softmax_loss_not_background = softmax_loss_all_classes * not_background
     softmax_loss_not_background = tf.math.reduce_sum(softmax_loss_not_background, axis=-1)
 
+    # count number of not background samples for each batch
+    number_of_non_background_samples_per_batch = tf.math.reduce_sum(not_background, axis=-1)
+
+
     # --------------------------------------------------------------------------------------------------
     # softmax loss for background class
     # --------------------------------------------------------------------------------------------------
@@ -114,6 +118,9 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     # in the extreme case of no background classes, we'll just return zero as loss for background class
     if tf.math.equal(background_samples, tf.constant(0, dtype=tf.int32)):
         softmax_loss_background = tf.zeros_like(softmax_loss_not_background)
+
+        # count number of background samples for each batch
+        number_of_background_samples_per_batch = tf.zeros_like(softmax_loss_not_background)
     else:
         # flatten the loss data to 1d tensor, output shape it's (batch * total boxes,)
         # this is the required format by the top_k tensorflow function
@@ -146,6 +153,10 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
         # reduce the loss by taking the sum (total loss) along boxes dimension, output shape it's (batch, )
         softmax_loss_background = tf.math.reduce_sum(softmax_loss_background, axis=-1)
+
+        # count number of background samples for each batch
+        number_of_background_samples_per_batch = tf.reduce_sum(background_samples_to_keep, axis=-1)
+
         
     # --------------------------------------------------------------------------------------------------
     # softmax loss, final step
@@ -155,7 +166,7 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
     # divide the loss by the number of samples that are not background
     # if there are only background samples, then divide by 1
-    softmax_loss_balanced = softmax_loss_balanced / tf.math.maximum(tf.math.reduce_sum(not_background, axis=-1), 1.0)
+    softmax_loss_balanced = softmax_loss_balanced / tf.math.maximum(number_of_non_background_samples_per_batch + number_of_background_samples_per_batch, 1.0)
 
     return softmax_loss_balanced
 
