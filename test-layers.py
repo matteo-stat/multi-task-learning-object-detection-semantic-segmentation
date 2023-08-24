@@ -44,7 +44,7 @@ data_reader_encoder = ssdseglib.datacoder.DataEncoderDecoder(
 )
 
 
-decode_boxes_centroids_offsets = DecodeBoxesCentroidsOffsets(
+decode_boxes_centroids_offsets = ssdseglib.layers.DecodeBoxesCentroidsOffsets(
     center_x_boxes_default=data_reader_encoder.center_x_boxes_default,
     center_y_boxes_default=data_reader_encoder.center_y_boxes_default,
     width_boxes_default=data_reader_encoder.width_boxes_default,
@@ -57,7 +57,7 @@ decode_boxes_centroids_offsets = DecodeBoxesCentroidsOffsets(
 decode_boxes_centroids_offsets.trainable = False
 
     
-non_maximum_suppression = NonMaximumSuppression(max_number_of_boxes_per_class=5, max_number_of_boxes_total=10, boxes_iou_threshold=0.5, labels_probability_threshold=0.6)
+non_maximum_suppression = ssdseglib.layers.NonMaximumSuppression(max_number_of_boxes_per_class=5, max_number_of_boxes_per_sample=10, boxes_iou_threshold=0.5, labels_probability_threshold=0.6)
 non_maximum_suppression.trainable = False
 
 
@@ -123,6 +123,8 @@ for path_image, path_mask, path_labels_boxes in zip(path_images_test[:10], path_
         ax1.add_patch(rect)
         ax1.text(xmin, ymin, label_code_to_str[label] + f' {int(label_prob*100)}%', fontsize=8, color=label_code_to_color[label], verticalalignment='top')        
 
+        # mask = tf.math.argmax(tf.squeeze(mask, axis=0), axis=-1)
+        # mask = tf.one_hot(mask, 4, dtype=tf.float32)
         mask_sample = tf.slice(tf.squeeze(mask, axis=0), begin=[0, 0, 1], size=[-1, -1, 3])
 
         # setup the subplot
