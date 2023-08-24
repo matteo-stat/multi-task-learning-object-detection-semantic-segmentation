@@ -44,7 +44,7 @@ def mobilenetv2_block_depthwise(layer: tf.keras.layers.Layer, strides: Union[int
 
     # apply in sequence depthwise convolution, batch normalization and relu6
     # note that mobilenet-v2 use depthwise pointwise convolution, so we have always one filter per channel in the depthwise convolution (depth_multiplier=1)
-    layer = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=strides, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}conv')(layer)        
+    layer = tf.keras.layers.DepthwiseConv2D(depth_multiplier=1, kernel_size=3, strides=strides, padding='same', use_bias=False, name=f'{name_prefix}conv')(layer)        
     layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
     layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
 
@@ -67,7 +67,7 @@ def mobilenetv2_block_project(layer: tf.keras.layers.Layer, channels: int, count
     name_prefix = f'backbone-block{counter_blocks}-project-'
 
     # apply in sequence pointwise convolution and batch normalization
-    layer = tf.keras.layers.Conv2D(filters=channels, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}conv')(layer)
+    layer = tf.keras.layers.Conv2D(filters=channels, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}conv')(layer)
     layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
 
     return layer
@@ -130,8 +130,8 @@ def mobilenetv2_block_sequence(layer: tf.keras.layers.Layer, expansion_factor: i
 def deeplabv3plus_encoder(layer: tf.keras.layers.Layer, filters: int = 256, dilation_rates: Tuple[int, int, int] = (6, 12, 18)) -> tf.keras.layers.Layer:
     """
     create a deeplabv3+ encoder for semantic segmentation, which should be more efficient regarding resources usage compared to deeplabv3\n
-    this encoder block take the layer argument as input layer, then apply the aspp (atrous spatial pyramid pooling) block and the pooling block\n
-    the aspp block use atrous separable convolution (depthwise convolution with dilation rate followed by a pointwise convolution)\n
+    this encoder block apply to the input layer the aspp (atrous spatial pyramid pooling) block and the pooling block\n
+    the aspp block it's implemented with atrous separable convolution (depthwise convolution with dilation rate followed by a pointwise convolution)\n
     the aspp block it's composed by a pointwise convolution and three atrous separable convolution with different dilation rates\n
     the pooling block apply global average pooling to the height-width dimension, followed by a pointwise convolution\n
     the outputs from aspp block and pooling block are concatenated along the axis channel and processed by a pointwise convolution\n
@@ -150,33 +150,33 @@ def deeplabv3plus_encoder(layer: tf.keras.layers.Layer, filters: int = 256, dila
     name_prefix = f'segmentation-encoder-aspp-'
 
     # aspp block - pointwise convolution branch    
-    layer_pointwise = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}conv')(layer)
+    layer_pointwise = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}conv')(layer)
     layer_pointwise = tf.keras.layers.BatchNormalization(name=f'{name_prefix}conv-batchnorm')(layer_pointwise)
-    layer_pointwise = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}conv-relu6')(layer_pointwise)
+    layer_pointwise = tf.keras.layers.ReLU(name=f'{name_prefix}conv-relu')(layer_pointwise)
 
     # aspp block - 1st atrous separable convolution branch
-    layer_atrous_1 = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=1, padding='same', depth_multiplier=1, dilation_rate=dilation_rates[0], name=f'{name_prefix}atrous1-depthconv')(layer)
+    layer_atrous_1 = tf.keras.layers.DepthwiseConv2D(depth_multiplier=1, kernel_size=3, padding='same', dilation_rate=dilation_rates[0], use_bias=False, name=f'{name_prefix}atrous1-depthconv')(layer)
     layer_atrous_1 = tf.keras.layers.BatchNormalization(name=f'{name_prefix}atrous1-depthconv-batchnorm')(layer_atrous_1)
-    layer_atrous_1 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}atrous1-depthconv-relu6')(layer_atrous_1)
-    layer_atrous_1 = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}atrous1-conv')(layer_atrous_1)
+    layer_atrous_1 = tf.keras.layers.ReLU(name=f'{name_prefix}atrous1-depthconv-relu')(layer_atrous_1)
+    layer_atrous_1 = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}atrous1-conv')(layer_atrous_1)
     layer_atrous_1 = tf.keras.layers.BatchNormalization(name=f'{name_prefix}atrous1-conv-batchnorm')(layer_atrous_1)
-    layer_atrous_1 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}atrous1-conv-relu6')(layer_atrous_1)
+    layer_atrous_1 = tf.keras.layers.ReLU(name=f'{name_prefix}atrous1-conv-relu')(layer_atrous_1)
 
     # aspp block - 2nd atrous separable convolution branch
-    layer_atrous_2 = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=1, padding='same', depth_multiplier=1, dilation_rate=dilation_rates[1], name=f'{name_prefix}atrous2-depthconv')(layer)
+    layer_atrous_2 = tf.keras.layers.DepthwiseConv2D(depth_multiplier=1, kernel_size=3, padding='same', dilation_rate=dilation_rates[1], use_bias=False, name=f'{name_prefix}atrous2-depthconv')(layer)
     layer_atrous_2 = tf.keras.layers.BatchNormalization(name=f'{name_prefix}atrous2-depthconv-batchnorm')(layer_atrous_2)
-    layer_atrous_2 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}atrous2-depthconv-relu6')(layer_atrous_2)
-    layer_atrous_2 = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}atrous2-conv')(layer_atrous_2)
+    layer_atrous_2 = tf.keras.layers.ReLU(name=f'{name_prefix}atrous2-depthconv-relu')(layer_atrous_2)
+    layer_atrous_2 = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}atrous2-conv')(layer_atrous_2)
     layer_atrous_2 = tf.keras.layers.BatchNormalization(name=f'{name_prefix}atrous2-conv-batchnorm')(layer_atrous_2)
-    layer_atrous_2 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}atrous2-conv-relu6')(layer_atrous_2)
+    layer_atrous_2 = tf.keras.layers.ReLU(name=f'{name_prefix}atrous2-conv-relu')(layer_atrous_2)
 
     # aspp block - 3rd atrous separable convolution branch
-    layer_atrous_3 = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=1, padding='same', depth_multiplier=1, dilation_rate=dilation_rates[2], name=f'{name_prefix}atrous3-depthconv')(layer)
+    layer_atrous_3 = tf.keras.layers.DepthwiseConv2D(depth_multiplier=1, kernel_size=3, padding='same', dilation_rate=dilation_rates[2], use_bias=False, name=f'{name_prefix}atrous3-depthconv')(layer)
     layer_atrous_3 = tf.keras.layers.BatchNormalization(name=f'{name_prefix}atrous3-depthconv-batchnorm')(layer_atrous_3)
-    layer_atrous_3 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}atrous3-depthconv-relu6')(layer_atrous_3)
-    layer_atrous_3 = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}atrous3-conv')(layer_atrous_3)
+    layer_atrous_3 = tf.keras.layers.ReLU(name=f'{name_prefix}atrous3-depthconv-relu')(layer_atrous_3)
+    layer_atrous_3 = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}atrous3-conv')(layer_atrous_3)
     layer_atrous_3 = tf.keras.layers.BatchNormalization(name=f'{name_prefix}atrous3-conv-batchnorm')(layer_atrous_3)
-    layer_atrous_3 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}atrous3-conv-relu6')(layer_atrous_3)
+    layer_atrous_3 = tf.keras.layers.ReLU(name=f'{name_prefix}atrous3-conv-relu')(layer_atrous_3)
 
     # set the prefix for layers names
     name_prefix = f'segmentation-encoder-'    
@@ -189,18 +189,18 @@ def deeplabv3plus_encoder(layer: tf.keras.layers.Layer, filters: int = 256, dila
     # (note for me -> the upsampling rate it's fine to be equal to shape because the resolution after global average pooling is 1x1)
     upsampling_size_pooling = tuple(layer.shape[1:3])
     layer_pooling = tf.keras.layers.GlobalAveragePooling2D(data_format='channels_last', keepdims=True, name=f'{name_prefix}pooling')(layer)
-    layer_pooling = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1, padding='same', dilation_rate=1, use_bias=False, name=f'{name_prefix}pooling-conv')(layer_pooling)
+    layer_pooling = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}pooling-conv')(layer_pooling)
     layer_pooling = tf.keras.layers.BatchNormalization(name=f'{name_prefix}pooling-batchnorm')(layer_pooling)
-    layer_pooling = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}pooling-relu6')(layer_pooling)
+    layer_pooling = tf.keras.layers.ReLU(name=f'{name_prefix}pooling-relu')(layer_pooling)
     layer_pooling = tf.keras.layers.UpSampling2D(size=upsampling_size_pooling, interpolation='bilinear', name=f'{name_prefix}pooling-upsampling')(layer_pooling)
 
     # concatenate layer - concantenate the outputs from aspp block and pooling block along channel dimension
     layer_concat = tf.keras.layers.Concatenate(axis=-1, name=f'{name_prefix}concat')([layer_pointwise, layer_atrous_1, layer_atrous_2, layer_atrous_3, layer_pooling])
 
     # output layer - apply a pointwise convolution to the previous concatenated layer
-    layer_output = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1, padding='same', dilation_rate=1, use_bias=False, name=f'{name_prefix}output-conv')(layer_concat)
+    layer_output = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}output-conv')(layer_concat)
     layer_output = tf.keras.layers.BatchNormalization(name=f'{name_prefix}output-batchnorm')(layer_output)
-    layer_output = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}output-relu6')(layer_output)
+    layer_output = tf.keras.layers.ReLU(name=f'{name_prefix}output-relu')(layer_output)
 
     return layer_output
 
@@ -235,26 +235,36 @@ def deeplabv3plus_decoder(layer_encoder: tf.keras.layers.Layer, layer_backbone: 
 
     # reduce the number of channels from the backbone layer using pointwise convolution
     # the idea is to sharpen the mask coming from the encoder, but we don't want to give too much weight to the backbone layer, so we reduce the number of channels
-    layer_backbone = tf.keras.layers.Conv2D(filters=filters_backbone, kernel_size=1, strides=1, padding='same', dilation_rate=1, use_bias=False, name=f'{name_prefix}backbone-conv')(layer_backbone)
+    layer_backbone = tf.keras.layers.Conv2D(filters=filters_backbone, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}backbone-conv')(layer_backbone)
     layer_backbone = tf.keras.layers.BatchNormalization(name=f'{name_prefix}backbone-batchnorm')(layer_backbone)
     layer_backbone = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}backbone-relu6')(layer_backbone)
 
     # concatenate the upsampled encoder layer and the backbone layer along channel dimension
     layer_concat = tf.keras.layers.Concatenate(axis=-1, name=f'{name_prefix}concat')([layer_backbone, layer_encoder])
 
-    # process the concatenated information with a depthwise separable convolution
-    # probably the standard convolution will give better results, but it's more resource expensive
+    # process the concatenated information with a sequence of two depthwise separable convolutions
+    # probably the standard convolution will give better results, but it's more expensive in terms of resources
     # note for me -> if there are enough resources switch to standard convolution
-    layer = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=1, padding='same', depth_multiplier=1, name=f'{name_prefix}depthconv')(layer_concat)
-    layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}depthconv-batchnorm')(layer)
-    layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}depthconv-relu6')(layer)
-    layer = tf.keras.layers.Conv2D(filters=filters_backbone, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}conv')(layer)
-    layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}conv-batchnorm')(layer)
-    layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}conv-relu6')(layer)
+
+    # first depthwise separable convolution
+    layer = tf.keras.layers.DepthwiseConv2D(depth_multiplier=1, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}depthconv1')(layer_concat)
+    layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}depthconv1-batchnorm')(layer)
+    layer = tf.keras.layers.ReLU(name=f'{name_prefix}depthconv1-relu')(layer)
+    layer = tf.keras.layers.Conv2D(filters=filters_decoder, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}conv1')(layer)
+    layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}conv1-batchnorm')(layer)
+    layer = tf.keras.layers.ReLU(name=f'{name_prefix}conv1-relu')(layer)
+
+    # second depthwise separable convolution
+    layer = tf.keras.layers.DepthwiseConv2D(depth_multiplier=1, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}depthconv2')(layer_concat)
+    layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}depthconv2-batchnorm')(layer)
+    layer = tf.keras.layers.ReLU(name=f'{name_prefix}depthconv2-relu')(layer)
+    layer = tf.keras.layers.Conv2D(filters=filters_decoder, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}conv2')(layer)
+    layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}conv2-batchnorm')(layer)
+    layer = tf.keras.layers.ReLU(name=f'{name_prefix}conv2-relu')(layer)
 
     # create the ouput semantic segmentation mask, where the number of channels are equal to the number of classes
     upsampling_size_decoder = (int(layer_output_height_width[0] / layer.shape[1]), int(layer_output_height_width[1] / layer.shape[2]))
-    layer_output = tf.keras.layers.Conv2D(filters=filters_output, kernel_size=3, strides=1, padding='same', use_bias=False, name=f'{name_prefix}output-conv')(layer)
+    layer_output = tf.keras.layers.Conv2D(filters=filters_output, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}output-conv')(layer)
     layer_output = tf.keras.layers.UpSampling2D(size=upsampling_size_decoder, interpolation='bilinear', name=f'{name_prefix}output-upsampling')(layer_output)
     layer_output = tf.keras.layers.Softmax(name='output-mask')(layer_output)
 
@@ -279,15 +289,15 @@ def ssdlite_block(layer: tf.keras.layers.Layer, filters: int, output_channels: i
     Returns:
         tf.keras.layers.Layer: output from a ssdlite block
     """
-    layer = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=1, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}-depthconv')(layer)
+    layer = tf.keras.layers.DepthwiseConv2D(depth_multiplier=1, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}-depthconv')(layer)
     layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}-batchnorm')(layer)
     layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}-relu6')(layer)
-    layer = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, strides=1, padding='same', use_bias=True, name=f'{name_prefix}-pointconv')(layer)
+    layer = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=True, name=f'{name_prefix}-pointconv')(layer)
     layer = tf.keras.layers.Reshape(target_shape=(-1, output_channels), name=f'{name_prefix}-reshape')(layer)
 
     return layer
 
-def build_mobilenetv2_ssdseg(number_of_boxes_per_point: Union[int, List[int]], number_of_classes: int):
+def build_mobilenetv2_ssdseg(input_image_shape: Tuple[int, int, int], number_of_boxes_per_point: Union[int, List[int]], number_of_classes: int):
 
     if isinstance(number_of_boxes_per_point, int):
         number_of_boxes_per_point = (number_of_boxes_per_point,) * 4
@@ -296,7 +306,7 @@ def build_mobilenetv2_ssdseg(number_of_boxes_per_point: Union[int, List[int]], n
     # -> backbone input
     # ----------------------------------------------------------------------------------------------------------------------------------------------------------
     # define the input
-    layer_input_backbone = tf.keras.Input(shape=(480, 640, 3), dtype=tf.float32, name='input')
+    layer_input_backbone = tf.keras.Input(shape=input_image_shape, dtype=tf.float32, name='input')
 
     # ----------------------------------------------------------------------------------------------------------------------------------------------------------
     # -> backbone preprocessing
@@ -337,7 +347,7 @@ def build_mobilenetv2_ssdseg(number_of_boxes_per_point: Union[int, List[int]], n
     layer = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=2, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}depthconv')(layer)        
     layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}depthconv-batchnorm')(layer)
     layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}depthconv-relu6')(layer)
-    layer = tf.keras.layers.Conv2D(filters=320, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}pointconv')(layer)
+    layer = tf.keras.layers.Conv2D(filters=320, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}pointconv')(layer)
     layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}pointconv-batchnorm')(layer)
     layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}pointconv-relu6')(layer)
 
@@ -346,7 +356,7 @@ def build_mobilenetv2_ssdseg(number_of_boxes_per_point: Union[int, List[int]], n
     layer = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=2, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}depthconv')(layer)        
     layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}depthconv-batchnorm')(layer)
     layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}depthconv-relu6')(layer)
-    layer = tf.keras.layers.Conv2D(filters=320, kernel_size=1, strides=1, padding='same', use_bias=False, name=f'{name_prefix}pointconv')(layer)
+    layer = tf.keras.layers.Conv2D(filters=320, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}pointconv')(layer)
     layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}pointconv-batchnorm')(layer)
     layer_output_backbone = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}pointconv-relu6')(layer)
 
@@ -372,7 +382,7 @@ def build_mobilenetv2_ssdseg(number_of_boxes_per_point: Union[int, List[int]], n
         layer_output_height_width=tuple(layer_input_backbone.shape[1:3]),
         filters_backbone=48,
         filters_decoder=256,
-        filters_output=4
+        filters_output=number_of_classes
     )
 
     # ----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -386,10 +396,10 @@ def build_mobilenetv2_ssdseg(number_of_boxes_per_point: Union[int, List[int]], n
     layer_input_object_detection_4 = model.get_layer(name='backbone-block18-pointconv-relu6').output
 
     # object detection regression branch (boxes)
-    layer_output_object_detection_boxes_1 = ssdlite_block(layer=layer_input_object_detection_1, filters=number_of_boxes_per_point[0]*4, output_channels=4, name_prefix='object-detection-boxes1-')
-    layer_output_object_detection_boxes_2 = ssdlite_block(layer=layer_input_object_detection_2, filters=number_of_boxes_per_point[1]*4, output_channels=4, name_prefix='object-detection-boxes2-')
-    layer_output_object_detection_boxes_3 = ssdlite_block(layer=layer_input_object_detection_3, filters=number_of_boxes_per_point[2]*4, output_channels=4, name_prefix='object-detection-boxes3-')
-    layer_output_object_detection_boxes_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=number_of_boxes_per_point[3]*4, output_channels=4, name_prefix='object-detection-boxes4-')
+    layer_output_object_detection_boxes_1 = ssdlite_block(layer=layer_input_object_detection_1, filters=number_of_boxes_per_point[0]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-boxes1-')
+    layer_output_object_detection_boxes_2 = ssdlite_block(layer=layer_input_object_detection_2, filters=number_of_boxes_per_point[1]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-boxes2-')
+    layer_output_object_detection_boxes_3 = ssdlite_block(layer=layer_input_object_detection_3, filters=number_of_boxes_per_point[2]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-boxes3-')
+    layer_output_object_detection_boxes_4 = ssdlite_block(layer=layer_input_object_detection_4, filters=number_of_boxes_per_point[3]*number_of_classes, output_channels=number_of_classes, name_prefix='object-detection-boxes4-')
     layer_output_object_detection_boxes = tf.keras.layers.Concatenate(axis=1, name=f'output-boxes')([layer_output_object_detection_boxes_1, layer_output_object_detection_boxes_2, layer_output_object_detection_boxes_3, layer_output_object_detection_boxes_4])
 
 
