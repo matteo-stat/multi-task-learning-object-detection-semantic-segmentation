@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+@tf.keras.saving.register_keras_serializable(name='DecodeBoxesCentroidsOffsets')
 class DecodeBoxesCentroidsOffsets(tf.keras.layers.Layer):
     def __init__(
             self,
@@ -10,7 +11,8 @@ class DecodeBoxesCentroidsOffsets(tf.keras.layers.Layer):
             standard_deviation_center_x_offsets: float,
             standard_deviation_center_y_offsets: float,
             standard_deviation_width_offsets: float,
-            standard_deviation_height_offsets: float 
+            standard_deviation_height_offsets: float,
+            **kwargs
         ) -> None:
         """
         decode the centroids offsets predicted by the network
@@ -27,7 +29,7 @@ class DecodeBoxesCentroidsOffsets(tf.keras.layers.Layer):
         """
 
         # init from parent class
-        super().__init__()
+        super().__init__(**kwargs)
 
         # set attributes
         self.center_x_boxes_default = tf.constant(center_x_boxes_default, dtype=tf.float32)
@@ -77,6 +79,19 @@ class DecodeBoxesCentroidsOffsets(tf.keras.layers.Layer):
         
         return corners
 
+    def get_config(self):
+        return {
+            'center_x_boxes_default': self.center_x_boxes_default,
+            'center_y_boxes_default': self.center_y_boxes_default,
+            'width_boxes_default': self.width_boxes_default,
+            'height_boxes_default': self.height_boxes_default,
+            'standard_deviation_center_x_offsets': self.standard_deviation_center_x_offsets,
+            'standard_deviation_center_y_offsets': self.standard_deviation_center_y_offsets,
+            'standard_deviation_width_offsets': self.standard_deviation_width_offsets,
+            'standard_deviation_height_offsets': self.standard_deviation_height_offsets,
+        }
+
+@tf.keras.saving.register_keras_serializable(name='NonMaximumSuppression')
 class NonMaximumSuppression(tf.keras.layers.Layer):
     def __init__(
             self,
@@ -84,6 +99,7 @@ class NonMaximumSuppression(tf.keras.layers.Layer):
             max_number_of_boxes_per_sample: int,
             boxes_iou_threshold: float,
             labels_probability_threshold: float,
+            **kwargs
         ):
         """
         process the object detection outputs with non maximum suppression\n
@@ -97,7 +113,7 @@ class NonMaximumSuppression(tf.keras.layers.Layer):
         """
 
         # init from parent class
-        super().__init__()
+        super().__init__(**kwargs)
 
         # set attributes
         self.max_number_of_boxes_per_class = max_number_of_boxes_per_class
@@ -146,3 +162,11 @@ class NonMaximumSuppression(tf.keras.layers.Layer):
         object_detection_output = tf.boolean_mask(tensor=object_detection_output, mask=not_background)
 
         return object_detection_output
+
+    def get_config(self):
+        return {
+            'max_number_of_boxes_per_class': self.max_number_of_boxes_per_class,
+            'max_number_of_boxes_per_sample': self.max_number_of_boxes_per_sample,
+            'boxes_iou_threshold': self.boxes_iou_threshold,
+            'labels_probability_threshold': self.labels_probability_threshold,
+        }
