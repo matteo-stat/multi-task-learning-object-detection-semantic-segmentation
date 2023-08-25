@@ -254,11 +254,11 @@ class MobileNetV2SsdSegBuilder():
         Returns:
             tf.keras.layers.Layer: output from a ssdlite block
         """
-        layer = tf.keras.layers.DepthwiseConv2D(depth_multiplier=1, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}-depthwiseconv')(layer)
-        layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}-batchnorm')(layer)
-        layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}-relu6')(layer)
-        layer = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=True, name=f'{name_prefix}-pointconv')(layer)
-        layer = tf.keras.layers.Reshape(target_shape=(-1, output_channels), name=f'{name_prefix}-reshape')(layer)
+        layer = tf.keras.layers.DepthwiseConv2D(depth_multiplier=1, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}depthwiseconv')(layer)
+        layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
+        layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
+        layer = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=True, name=f'{name_prefix}pointconv')(layer)
+        layer = tf.keras.layers.Reshape(target_shape=(-1, output_channels), name=f'{name_prefix}reshape')(layer)
 
         return layer
 
