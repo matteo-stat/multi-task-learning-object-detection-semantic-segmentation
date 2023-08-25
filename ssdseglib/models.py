@@ -203,7 +203,7 @@ class MobileNetV2Builder():
 
         return layer_input
 
-    def _ssdlite_block(layer: tf.keras.layers.Layer, filters: int, output_channels: int, name_prefix: str) -> tf.keras.layers.Layer:
+    def _ssdlite_block(self, layer: tf.keras.layers.Layer, filters: int, output_channels: int, name_prefix: str) -> tf.keras.layers.Layer:
         """
         single-shot-detector-lite (ssdlite) block, that consinsts in a depthwise separable convolution and a reshape operation\n
         the depthwise convolution process the input layer, followed by batch normalization and relu6\n
@@ -230,7 +230,7 @@ class MobileNetV2Builder():
 
         return layer
 
-    def _deeplabv3plus_encoder(layer: tf.keras.layers.Layer, filters: int = 256, dilation_rates: Tuple[int, int, int] = (6, 12, 18)) -> tf.keras.layers.Layer:
+    def _deeplabv3plus_encoder(self, layer: tf.keras.layers.Layer, filters: int = 256, dilation_rates: Tuple[int, int, int] = (6, 12, 18)) -> tf.keras.layers.Layer:
         """
         create a deeplabv3+ encoder for semantic segmentation, which should be more efficient regarding resources usage compared to deeplabv3\n
         this encoder block apply to the input layer the aspp (atrous spatial pyramid pooling) block and the pooling block\n
@@ -453,6 +453,8 @@ class MobileNetV2Builder():
             filters_decoder=256
         )
 
+        return layer_output
+
     def get_model_for_training(self) -> tf.keras.Model:
         """
         create a mobilenet-v2 backbone with a segmentation head and an object detection head\n
@@ -464,6 +466,7 @@ class MobileNetV2Builder():
         """
         
         # create backbone, segmentation head and object detection head
+        self._counter_blocks = 0
         layer_input = self._mobilenetv2_backbone()
         layer_output_mask = self._semantic_segmentation_head()
         layer_output_labels, layer_output_boxes = self._object_detection_head()
