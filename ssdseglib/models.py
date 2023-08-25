@@ -1,6 +1,5 @@
 from typing import Tuple, Union, List
 import tensorflow as tf
-import ssdseglib
 
 class MobileNetV2Builder():
     def __init__(self, input_image_shape: Tuple[int, int, int], number_of_boxes_per_point: Union[int, List[int]], number_of_classes: int) -> None:
