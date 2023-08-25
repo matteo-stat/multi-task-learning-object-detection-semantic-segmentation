@@ -54,10 +54,7 @@ def jaccard_iou_bounding_boxes(
         center_y_boxes_default: tf.Tensor,
         width_boxes_default: tf.Tensor,
         height_boxes_default: tf.Tensor,
-        standard_deviation_center_x_offsets: float,
-        standard_deviation_center_y_offsets: float,
-        standard_deviation_width_offsets: float,
-        standard_deviation_height_offsets: float
+        standard_deviations_centroids_offsets: tuple[float],
     ) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     jaccard iou metric, for object detection regression data with shape (batch, total boxes, 4)\n
@@ -68,14 +65,13 @@ def jaccard_iou_bounding_boxes(
         center_y_boxes_default (tf.Tensor): center-y for centroids coordinates of default bounding boxes
         width_boxes_default (tf.Tensor): width for centroids coordinates of default bounding boxes
         height_boxes_default (tf.Tensor): height for centroids coordinates of default bounding boxes
-        standard_deviation_center_x_offsets (float): standard deviation for center-x offsets between ground truth and default bounding boxes
-        standard_deviation_center_y_offsets (float): standard deviation for center-y offsets between ground truth and default bounding boxes
-        standard_deviation_width_offsets (float): standard deviation for width offsets between ground truth and default bounding boxes
-        standard_deviation_height_offsets (float): standard deviation for height offsets between ground truth and default bounding boxes
+        standard_deviations_centroids_offsets (tuple[float]): standard deviations for offsets between ground truth and default bounding boxes, expected as (standard_deviation_center_x_offsets, standard_deviation_center_y_offsets, standard_deviation_width_offsets, standard_deviation_height_offsets).
 
     Returns:
         Callable[[tf.Tensor, tf.Tensor], tf.Tensor]: the function for calculating the weighted jaccard iou bounding boxes metric
     """
+
+    standard_deviation_center_x_offsets, standard_deviation_center_y_offsets, standard_deviation_width_offsets, standard_deviation_height_offsets = standard_deviations_centroids_offsets
 
     def _decode_standardized_offsets(offsets_centroids: tf.Tensor, not_background: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
         """
