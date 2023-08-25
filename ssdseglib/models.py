@@ -27,7 +27,7 @@ class MobileNetV2Builder():
             tf.keras.layers.Layer: output layer from the mobilenet-v2 expand block
         """
         # set the prefix for layers names
-        name_prefix = f'backbone-block{self.counter_blocks}-expand-'
+        name_prefix = f'backbone-block{self._counter_blocks}-expand-'
 
         # apply in sequence pointwise convolution, batch normalization and relu6
         layer = tf.keras.layers.Conv2D(filters=channels, kernel_size=kernel_size, strides=strides, padding='same', use_bias=False, name=f'{name_prefix}conv')(layer)
