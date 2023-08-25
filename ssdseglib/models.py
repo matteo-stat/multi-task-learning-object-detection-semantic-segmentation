@@ -480,7 +480,7 @@ class MobileNetV2SsdSegBuilder():
         layer_output = self._deeplabv3plus_decoder(
             layer_encoder=layer_input_decoder_from_encoder,
             layer_backbone=layer_input_decoder_from_backbone,
-            layer_output_height_width=tuple(layer_input_decoder_from_backbone.shape[1:3]),
+            layer_output_height_width=tuple(self._layers['backbone-input'].shape[1:3]),
             filters_backbone=48,
             filters_decoder=256
         )
