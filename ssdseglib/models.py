@@ -1,12 +1,52 @@
 from typing import Tuple, Union, List
 import tensorflow as tf
+import ssdseglib
 
-class MobileNetV2Builder():
-    def __init__(self, input_image_shape: Tuple[int, int, int], number_of_boxes_per_point: Union[int, List[int]], number_of_classes: int) -> None:
+class MobileNetV2SsdSegBuilder():
+    def __init__(
+            self,
+            input_image_shape: Tuple[int, int, int],
+            number_of_boxes_per_point: Union[int, List[int]],
+            number_of_classes: int,
+            center_x_boxes_default: tf.Tensor,
+            center_y_boxes_default: tf.Tensor,
+            width_boxes_default: tf.Tensor,
+            height_boxes_default: tf.Tensor,
+            standard_deviation_center_x_offsets: float,
+            standard_deviation_center_y_offsets: float,
+            standard_deviation_width_offsets: float,
+            standard_deviation_height_offsets: float,                        
+        ) -> None:
+        """
+        _summary_
+
+        Args:
+            input_image_shape (Tuple[int, int, int]): _description_
+            number_of_boxes_per_point (Union[int, List[int]]): _description_
+            number_of_classes (int): _description_
+            center_x_boxes_default (tf.Tensor): center_x coordinates for default bounding boxes, expected shape it's (total boxes,)
+            center_y_boxes_default (tf.Tensor): center_y coordinates for default bounding boxes, expected shape it's (total boxes,)
+            width_boxes_default (tf.Tensor): width coordinates for default bounding boxes, expected shape it's (total boxes,)
+            height_boxes_default (tf.Tensor): height coordinates for default bounding boxes, expected shape it's (total boxes,)
+            standard_deviation_center_x_offsets (float): standard deviation for center_x offsets
+            standard_deviation_center_y_offsets (float): standard deviation for center_y offsets
+            standard_deviation_width_offsets (float): standard deviation for width offsets
+            standard_deviation_height_offsets (float): standard deviation for height offsets
+        """
 
         self.input_image_shape = input_image_shape
         self.number_of_boxes_per_point = (number_of_boxes_per_point,) * 4 if isinstance(number_of_boxes_per_point, int) else  number_of_boxes_per_point
         self.number_of_classes = number_of_classes
+
+        self._center_x_boxes_default = center_x_boxes_default
+        self._center_y_boxes_default = center_y_boxes_default
+        self._width_boxes_default = width_boxes_default
+        self._height_boxes_default = height_boxes_default
+
+        self._standard_deviation_center_x_offsets = standard_deviation_center_x_offsets
+        self._standard_deviation_center_y_offsets = standard_deviation_center_y_offsets
+        self._standard_deviation_width_offsets = standard_deviation_width_offsets
+        self._standard_deviation_height_offsets = standard_deviation_height_offsets
         
         # this is a counter used to give proper names to the network components
         self._counter_blocks = 0
@@ -478,3 +518,25 @@ class MobileNetV2Builder():
         self._layers = {layer.name: layer.output for layer in model.layers}
         
         return model
+
+    def get_model_for_inference(self, model_trained: tf.keras.Model):
+        """
+        decode_boxes_centroids_offsets = ssdseglib.layers.DecodeBoxesCentroidsOffsets(
+            center_x_boxes_default=self._center_x_boxes_default,
+            center_y_boxes_default=self._center_y_boxes_default,
+            width_boxes_default=self._width_boxes_default,
+            height_boxes_default=self._height_boxes_default,
+            standard_deviation_center_x_offsets=self._standard_deviation_center_x_offsets,
+            standard_deviation_center_y_offsets=self._standard_deviation_center_y_offsets,
+            standard_deviation_width_offsets=self._standard_deviation_width_offsets,
+            standard_deviation_height_offsets=self._standard_deviation_height_offsets
+        )    
+        decode_boxes_centroids_offsets.trainable = False
+
+        non_maximum_suppression = ssdseglib.layers.NonMaximumSuppression(max_number_of_boxes_per_class=5, max_number_of_boxes_per_sample=10, boxes_iou_threshold=0.5, labels_probability_threshold=0.6)
+        non_maximum_suppression.trainable = False
+
+        boxes_corners_decoded = decode_boxes_centroids_offsets(layer_output_boxes)
+        layer_output_object_detection = non_maximum_suppression(boxes_corners_coordinates=boxes_corners_decoded, labels_probabilities=layer_output_labels)
+        """
+        pass
