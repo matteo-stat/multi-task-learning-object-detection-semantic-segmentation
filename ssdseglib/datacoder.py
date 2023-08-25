@@ -14,7 +14,7 @@ class DataEncoderDecoder:
             center_x_boxes_default: ndarray[float] = None,
             center_y_boxes_default: ndarray[float] = None,
             width_boxes_default: ndarray[float] = None,
-            height_boxes_default: ndarray[float] = None,            
+            height_boxes_default: ndarray[float] = None,
             iou_threshold: float = 0.5,
             standard_deviations_centroids_offsets: tuple[float] = (0.1, 0.1, 0.2, 0.2),
             augmentation_horizontal_flip: bool = False,
