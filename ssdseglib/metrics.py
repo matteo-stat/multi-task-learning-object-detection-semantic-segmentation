@@ -16,6 +16,7 @@ def jaccard_iou_segmentation_masks(classes_weights: List[float]) -> Callable[[tf
     """
 
     classes_weights = tf.constant(classes_weights, dtype=tf.float32, shape=(1, len(classes_weights)))
+    epsilon = tf.keras.backend.epsilon()
 
     def jaccard_iou_segmentation_masks_metric(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """
@@ -36,7 +37,7 @@ def jaccard_iou_segmentation_masks(classes_weights: List[float]) -> Callable[[tf
         # total area, along height and width dimensions, output shape it's (batch, number of classes)
         total = tf.math.reduce_sum(y_true + y_pred, axis=(1, 2))
 
-        # jaccard iou metric, with laplace smoothing for managing missing class values
+        # jaccard iou metric (a small epsilon value it's used to avoid division by zero)
         # union can be calculated easily as difference between total and intersection
         metric_value = (intersection + 1.0) / (total - intersection + 1.0)
 

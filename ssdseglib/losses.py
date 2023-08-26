@@ -185,6 +185,7 @@ def dice(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Te
     """
 
     classes_weights = tf.constant(classes_weights, dtype=tf.float32, shape=(1, len(classes_weights)))
+    epsilon = tf.keras.backend.epsilon()
 
     def dice_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """
@@ -205,8 +206,8 @@ def dice(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Te
         # total area, along height and width dimensions, output shape it's (batch, number of classes)
         total = tf.math.reduce_sum(y_true + y_pred, axis=(1, 2))
 
-        # dice loss, with laplace smoothing for managing missing class values
-        loss_value = 1.0 - (2.0 * intersection + 1.0) / (total + 1.0)
+        # dice loss (a small epsilon value it's used to avoid division by zero)
+        loss_value = 1.0 - (2.0 * intersection + epsilon) / (total + epsilon)
 
         # weighted average along classes dimension, output shape it's (batch,)
         loss_value = loss_value * classes_weights
@@ -231,6 +232,7 @@ def dice_square(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor]
     """
 
     classes_weights = tf.constant(classes_weights, dtype=tf.float32, shape=(1, len(classes_weights)))
+    epsilon = tf.keras.backend.epsilon()
 
     def dice_square_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """
@@ -251,8 +253,8 @@ def dice_square(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor]
         # total of squares, along height and width dimensions, output shape it's (batch, number of classes)
         total_of_squares = tf.math.reduce_sum(tf.math.pow(y_true, 2) + tf.math.pow(y_pred, 2), axis=(1, 2))
 
-        # dice square loss, with laplace smoothing for managing missing class values
-        loss_value = 1.0 - (2.0 * intersection + 1.0) / (total_of_squares + 1.0)
+        # dice square loss (a small epsilon value it's used to avoid division by zero)
+        loss_value = 1.0 - (2.0 * intersection + epsilon) / (total_of_squares + epsilon)
 
         # weighted average along classes dimension, output shape it's (batch,)
         loss_value = loss_value * classes_weights
@@ -260,7 +262,7 @@ def dice_square(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor]
 
         return loss_value
     
-    return loss
+    return dice_square_loss
 
 @tf.keras.saving.register_keras_serializable(name="cross_entropy_loss")
 def cross_entropy(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
@@ -304,4 +306,4 @@ def cross_entropy(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tenso
 
         return loss_value
     
-    return loss
+    return cross_entropy_loss
