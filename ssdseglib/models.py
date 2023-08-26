@@ -374,7 +374,7 @@ class MobileNetV2SsdSegBuilder():
         # the idea is to sharpen the mask coming from the encoder, but we don't want to give too much weight to the backbone layer, so we reduce the number of channels
         layer_backbone = tf.keras.layers.Conv2D(filters=filters_backbone, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}backbone-conv')(layer_backbone)
         layer_backbone = tf.keras.layers.BatchNormalization(name=f'{name_prefix}backbone-batchnorm')(layer_backbone)
-        layer_backbone = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}backbone-relu6')(layer_backbone)
+        layer_backbone = tf.keras.layers.ReLU(name=f'{name_prefix}backbone-relu')(layer_backbone)
 
         # concatenate the upsampled encoder layer and the backbone layer along channel dimension
         layer_concat = tf.keras.layers.Concatenate(axis=-1, name=f'{name_prefix}concat')([layer_encoder, layer_backbone])
@@ -392,7 +392,7 @@ class MobileNetV2SsdSegBuilder():
         layer = tf.keras.layers.ReLU(name=f'{name_prefix}conv1-relu')(layer)
 
         # second depthwise separable convolution
-        layer = tf.keras.layers.DepthwiseConv2D(depth_multiplier=1, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}depthwiseconv2')(layer_concat)
+        layer = tf.keras.layers.DepthwiseConv2D(depth_multiplier=1, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}depthwiseconv2')(layer)
         layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}depthwiseconv2-batchnorm')(layer)
         layer = tf.keras.layers.ReLU(name=f'{name_prefix}depthwiseconv2-relu')(layer)
         layer = tf.keras.layers.Conv2D(filters=filters_decoder, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}conv2')(layer)
@@ -401,9 +401,9 @@ class MobileNetV2SsdSegBuilder():
 
         # create the ouput semantic segmentation mask, where the number of channels are equal to the number of classes
         upsampling_size_decoder = (int(layer_output_height_width[0] / layer.shape[1]), int(layer_output_height_width[1] / layer.shape[2]))
-        layer_output = tf.keras.layers.Conv2D(filters=self.number_of_classes, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}output-conv')(layer)
-        layer_output = tf.keras.layers.UpSampling2D(size=upsampling_size_decoder, interpolation='bilinear', name=f'{name_prefix}output-upsampling')(layer_output)
-        layer_output = tf.keras.layers.Softmax(name='output-mask')(layer_output)
+        layer = tf.keras.layers.Conv2D(filters=self.number_of_classes, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}output-conv')(layer)
+        layer = tf.keras.layers.UpSampling2D(size=upsampling_size_decoder, interpolation='bilinear', name=f'{name_prefix}output-upsampling')(layer)
+        layer_output = tf.keras.layers.Softmax(name='output-mask')(layer)
 
         return layer_output
 
@@ -480,7 +480,7 @@ class MobileNetV2SsdSegBuilder():
         layer_output = self._deeplabv3plus_decoder(
             layer_encoder=layer_input_decoder_from_encoder,
             layer_backbone=layer_input_decoder_from_backbone,
-            layer_output_height_width=tuple(self._layers['backbone-input'].shape[1:3]),
+            layer_output_height_width=self.input_image_shape[0:2],
             filters_backbone=48,
             filters_decoder=256
         )
