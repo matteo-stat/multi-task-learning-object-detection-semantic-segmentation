@@ -1,6 +1,6 @@
 train/*
-train-persons-mscoco/*
-train-forklifts-loco/*
+train-persons-from-mscoco-dataset/*
+train-forklifts-from-loco-dataset/*
 test/*
 eval/*
 models/*
