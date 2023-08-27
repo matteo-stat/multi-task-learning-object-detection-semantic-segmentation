@@ -1,5 +1,6 @@
 train/*
 train-persons-mscoco/*
+train-forklifts-loco/*
 test/*
 eval/*
 models/*
