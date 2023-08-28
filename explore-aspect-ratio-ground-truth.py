@@ -14,20 +14,36 @@ label_code_to_str = {
 }
 
 # files to load
-filenames = ['train', 'eval', 'test']
+filenames = ['train']
 
 # for each file
 for filename in filenames:
 
+    data = []
+
     # read training data
     with open(f'data/{filename}.json', 'r') as f:
-        data = json.load(f)
+        data.extend(json.load(f))
+
+    if filename == 'train':
+        # read training data
+        with open(f'data/train-persons-from-mscoco-dataset.json', 'r') as f:
+            data.extend(json.load(f))
+
+        # read training data
+        with open(f'data/train-forklifts-from-loco-dataset.json', 'r') as f:
+            data.extend(json.load(f))            
+
+        # read eval data
+        with open(f'data/eval.json', 'r') as f:
+            data.extend(json.load(f))            
+
 
     # sample training data
-    for _, _, path_labels_boxes in data:
+    for _, _, path_files_labels_boxes in data:
 
         # read labels boxes
-        with open(path_labels_boxes, 'r') as f:
+        with open(path_files_labels_boxes, 'r') as f:
             labels_boxes = list(csv.reader(f))
 
         # for each box
@@ -45,23 +61,24 @@ for filename in filenames:
             # append aspect ratio
             aspect_ratios[label_code_to_str[label]].append(width / height)
 
-# create subplots
-fig, axs = plt.subplots(3, 1, figsize=(8, 8), sharex=True)
+if False:
+    # create subplots
+    fig, axs = plt.subplots(3, 1, figsize=(8, 8), sharex=True)
 
-# plot histograms for each class
-colors = ['blue', 'green', 'orange']
+    # plot histograms for each class
+    colors = ['blue', 'green', 'orange']
 
-for idx, (class_name, ratios) in enumerate(aspect_ratios.items()):
-    ratios = np.array(ratios)
-    axs[idx].hist(ratios, bins=20, alpha=0.7, color=colors[idx], weights=np.zeros_like(ratios) + 1. / ratios.size)
-    axs[idx].set_title(f'aspect ratio distribution for {class_name}')
-    axs[idx].grid(True)
-    axs[idx].set_ylabel('relative frequency')
+    for idx, (class_name, ratios) in enumerate(aspect_ratios.items()):
+        ratios = np.array(ratios)
+        axs[idx].hist(ratios, bins=20, alpha=0.7, color=colors[idx], weights=np.zeros_like(ratios) + 1. / ratios.size)
+        axs[idx].set_title(f'aspect ratio distribution for {class_name}')
+        axs[idx].grid(True)
+        axs[idx].set_ylabel('relative frequency')
 
-plt.xlabel('aspect ratio')
-fig.legend(aspect_ratios.keys(), loc='upper right')
-plt.tight_layout()
-plt.show()
+    plt.xlabel('aspect ratio')
+    fig.legend(aspect_ratios.keys(), loc='upper right')
+    plt.tight_layout()
+    plt.show()
 
 # plot some summary of data
 for object_type, data in aspect_ratios.items():
@@ -80,6 +97,7 @@ for object_type, data in aspect_ratios.items():
     sd = np.std(data)
 
     print(f'\n------- {object_type} -------')
+    print(f'nobs: {len(data)}')
     print(f'mean: {mean:.4f}')
     print(f'q1: {q1:.4f}')
     print(f'median: {median:.4f}')

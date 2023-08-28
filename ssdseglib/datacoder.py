@@ -174,13 +174,13 @@ class DataEncoderDecoder:
 
         return xmin, ymin, xmax, ymax
     
-    def _encode_ground_truth_labels_boxes(self, path_labels_boxes: str, augment_with_horizontal_flip: bool) -> tuple[tf.Tensor, tf.Tensor]:
+    def _encode_ground_truth_labels_boxes(self, path_file_labels_boxes: str, augment_with_horizontal_flip: bool) -> tuple[tf.Tensor, tf.Tensor]:
         """
         encode ground truth data as required by a single-shot-detector network
         this means assign labels and calculate standardized offsets for each default bounding boxes
 
         Args:
-            path_labels_boxes (str): path and filename for ground truth labels and boxes
+            path_file_labels_boxes (str): path and filename for ground truth labels and boxes
             augment_with_horizontal_flip (bool): pass True if horizontal flip should be applied to input boxes, otherwise False
 
         Returns:
@@ -191,7 +191,7 @@ class DataEncoderDecoder:
         """
         
         # read labels boxes csv file as text, split text by lines and then decode csv data to tensors
-        labels_boxes = tf.strings.strip(tf.io.read_file(path_labels_boxes))
+        labels_boxes = tf.strings.strip(tf.io.read_file(path_file_labels_boxes))
         labels_boxes = tf.strings.split(labels_boxes, sep='\r\n')
         labels_boxes = tf.io.decode_csv(labels_boxes, record_defaults=[int(), float(), float(), float(), float()])
 
@@ -301,17 +301,17 @@ class DataEncoderDecoder:
 
     def read_and_encode(
             self,
-            path_image: str,
-            path_mask: str,
-            path_labels_boxes: str,
+            path_file_image: str,
+            path_file_mas: str,
+            path_file_labels_boxes: str,
         ) -> tuple[tf.Tensor, dict[str, tf.Tensor]]:
         """
         read and encode ground truth data
 
         Args:
-            path_image (str): path and filename for input image
-            path_mask (str): path and filename for ground truth segmentation mask
-            path_labels_boxes (str): path and filename for ground truth labels and boxes
+            path_file_image (str): path and filename for input image
+            path_file_mas (str): path and filename for ground truth segmentation mask
+            path_file_labels_boxes (str): path and filename for ground truth labels and boxes
 
         Returns:
             tuple[tf.Tensor, dict[str, tf.Tensor]]:
@@ -322,12 +322,12 @@ class DataEncoderDecoder:
         """
 
         # read the image
-        image = tf.io.read_file(path_image)
+        image = tf.io.read_file(path_file_image)
         image = tf.image.decode_png(image, channels=3)
         image = tf.cast(image, dtype=tf.float32)
 
         # read the segmentation mask, ignoring transparency channel in the png, one hot encode the classes, squeeze out unwanted dimension
-        mask = tf.io.read_file(path_mask)
+        mask = tf.io.read_file(path_file_mas)
         mask = tf.image.decode_png(mask, channels=1)
         mask = tf.one_hot(mask, depth=self.num_classes, dtype=tf.float32)
         mask = tf.squeeze(mask, axis=2)
@@ -342,7 +342,7 @@ class DataEncoderDecoder:
             mask = tf.image.flip_left_right(mask)
 
         # encode ground truth labels and bounding boxes, applying horizontal flip if needed
-        labels, boxes = self._encode_ground_truth_labels_boxes(path_labels_boxes=path_labels_boxes, augment_with_horizontal_flip=augment_with_horizontal_flip)
+        labels, boxes = self._encode_ground_truth_labels_boxes(path_file_labels_boxes=path_file_labels_boxes, augment_with_horizontal_flip=augment_with_horizontal_flip)
 
         return image, {'output-mask': mask, 'output-labels': labels, 'output-boxes': boxes}
     
@@ -464,3 +464,21 @@ def augmentation_rgb_channels(image_batch: tf.Tensor, targets_batch: dict[str, t
     image_batch = tf.clip_by_value(image_batch, clip_value_min=0.0, clip_value_max=255.0)
 
     return image_batch, targets_batch
+
+def read_image(path_file_image: str) -> tf.Tensor:
+    """
+    read an image given a path
+
+    Args:
+        path_file_image (str): path and filename for input image
+
+    Returns:
+        tf.Tensor: a tensor representing the input image
+    """
+
+    # read the image
+    image = tf.io.read_file(path_file_image)
+    image = tf.image.decode_png(image, channels=3)
+    image = tf.cast(image, dtype=tf.float32)
+
+    return image
