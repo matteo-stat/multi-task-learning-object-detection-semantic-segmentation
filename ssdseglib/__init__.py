@@ -1,5 +1,6 @@
 from ssdseglib import boxes
 from ssdseglib import datacoder
+from ssdseglib import evaluators
 from ssdseglib import layers
 from ssdseglib import losses
 from ssdseglib import metrics
