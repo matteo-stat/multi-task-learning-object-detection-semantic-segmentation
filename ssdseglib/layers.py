@@ -99,6 +99,7 @@ class NonMaximumSuppression(tf.keras.layers.Layer):
             max_number_of_boxes_per_sample: int,
             boxes_iou_threshold: float,
             labels_probability_threshold: float,
+            suppress_background_boxes: bool,
             **kwargs
         ):
         """
@@ -110,9 +111,9 @@ class NonMaximumSuppression(tf.keras.layers.Layer):
             max_number_of_boxes_per_sample (int): maximum number of boxes per sample
             boxes_iou_threshold (float): threshold for deciding whether boxes overlap too much with respect to iou
             labels_probability_threshold (float): threshold for deciding when to remove boxes based on class probabilities
+            suppress_background_boxes (bool): if True remove background boxes from output but you will loose the batch dimension, be careful!
         """
-
-        # init from parent class
+       # init from parent class
         super().__init__(**kwargs)
 
         # set attributes
@@ -120,6 +121,7 @@ class NonMaximumSuppression(tf.keras.layers.Layer):
         self.max_number_of_boxes_per_sample = max_number_of_boxes_per_sample
         self.boxes_iou_threshold = boxes_iou_threshold
         self.labels_probability_threshold = labels_probability_threshold
+        self.suppress_background_boxes = suppress_background_boxes
 
     def call(self, boxes_corners_coordinates: tf.Tensor, labels_probabilities: tf.Tensor) -> tf.Tensor:
         """
@@ -151,15 +153,16 @@ class NonMaximumSuppression(tf.keras.layers.Layer):
         # reorder corners coordinates with the more standard style (xmin, ymin, xmax, ymax)
         boxes_corners_coordinates = tf.gather(boxes_corners_coordinates, indices=[1, 0, 3, 2], axis=-1)
 
-        # expand dimension, needed for concatenate with 
+        # expand dimension, needed for concatenate with boxes
         labels = tf.expand_dims(labels, axis=2)
         labels_probabilities = tf.expand_dims(labels_probabilities, axis=2)
 
         # concatenated classes labels, probabilities and boxes corners coordinates, output shape it's (batch, selected boxes, 6)
         object_detection_output = tf.concat([labels, labels_probabilities, boxes_corners_coordinates], axis=-1)
 
-        # keep only output related to classes that are not background
-        object_detection_output = tf.boolean_mask(tensor=object_detection_output, mask=not_background)
+        # keep only output related to classes that are not background if requested
+        if self.suppress_background_boxes:
+            object_detection_output = tf.boolean_mask(tensor=object_detection_output, mask=not_background)
 
         return object_detection_output
 
@@ -169,4 +172,5 @@ class NonMaximumSuppression(tf.keras.layers.Layer):
             'max_number_of_boxes_per_sample': self.max_number_of_boxes_per_sample,
             'boxes_iou_threshold': self.boxes_iou_threshold,
             'labels_probability_threshold': self.labels_probability_threshold,
+            'suppress_background_boxes': self.suppress_background_boxes
         }

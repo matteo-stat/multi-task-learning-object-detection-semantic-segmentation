@@ -517,7 +517,8 @@ class MobileNetV2SsdSegBuilder():
             max_number_of_boxes_per_class: int,
             max_number_of_boxes_per_sample: int,
             boxes_iou_threshold: float,
-            labels_probability_threshold: float,            
+            labels_probability_threshold: float,
+            suppress_background_boxes: bool
         ) -> tf.keras.Model:
         """
         transform a trained model to an inference one\b
@@ -561,6 +562,7 @@ class MobileNetV2SsdSegBuilder():
             max_number_of_boxes_per_sample=max_number_of_boxes_per_sample,
             boxes_iou_threshold=boxes_iou_threshold,
             labels_probability_threshold=labels_probability_threshold,
+            suppress_background_boxes=suppress_background_boxes,
             name='output-object-detection'
         )
         non_maximum_suppression.trainable = False
