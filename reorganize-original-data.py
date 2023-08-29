@@ -63,7 +63,7 @@ for folder in folders:
         # write labels and boxes
         with open(f'data/{folder}/{file.replace(".png", "_labels_boxes.csv")}', 'w', newline='') as f:
             writer = csv.writer(f, delimiter=',')
-            writer.writerows(labels_boxes)        
+            writer.writerows(labels_boxes)
 
         # move
         os.rename(f'data/images/{folder}/{file}', f'data/{folder}/{file}')

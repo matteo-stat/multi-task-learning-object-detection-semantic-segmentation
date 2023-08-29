@@ -302,7 +302,7 @@ class DataEncoderDecoder:
     def read_and_encode(
             self,
             path_file_image: str,
-            path_file_mas: str,
+            path_file_mask: str,
             path_file_labels_boxes: str,
         ) -> tuple[tf.Tensor, dict[str, tf.Tensor]]:
         """
@@ -310,7 +310,7 @@ class DataEncoderDecoder:
 
         Args:
             path_file_image (str): path and filename for input image
-            path_file_mas (str): path and filename for ground truth segmentation mask
+            path_file_mask (str): path and filename for ground truth segmentation mask
             path_file_labels_boxes (str): path and filename for ground truth labels and boxes
 
         Returns:
@@ -327,7 +327,7 @@ class DataEncoderDecoder:
         image = tf.cast(image, dtype=tf.float32)
 
         # read the segmentation mask, ignoring transparency channel in the png, one hot encode the classes, squeeze out unwanted dimension
-        mask = tf.io.read_file(path_file_mas)
+        mask = tf.io.read_file(path_file_mask)
         mask = tf.image.decode_png(mask, channels=1)
         mask = tf.one_hot(mask, depth=self.num_classes, dtype=tf.float32)
         mask = tf.squeeze(mask, axis=2)
