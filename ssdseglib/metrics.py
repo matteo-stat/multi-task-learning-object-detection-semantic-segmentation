@@ -39,7 +39,7 @@ def jaccard_iou_segmentation_masks(classes_weights: List[float]) -> Callable[[tf
 
         # jaccard iou metric (a small epsilon value it's used to avoid division by zero)
         # union can be calculated easily as difference between total and intersection
-        metric_value = (intersection + 1.0) / (total - intersection + 1.0)
+        metric_value = intersection / (total - intersection + epsilon)
 
         # weighted average along classes dimension, output shape it's (batch,)
         metric_value = metric_value * classes_weights
@@ -73,6 +73,8 @@ def jaccard_iou_bounding_boxes(
     """
 
     standard_deviation_center_x_offsets, standard_deviation_center_y_offsets, standard_deviation_width_offsets, standard_deviation_height_offsets = standard_deviations_centroids_offsets
+    epsilon = tf.keras.backend.epsilon()
+
 
     def _decode_standardized_offsets(offsets_centroids: tf.Tensor, not_background: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
         """
@@ -161,8 +163,7 @@ def jaccard_iou_bounding_boxes(
 
         # iou for all the boxes, output shape it's (batch, total boxes)
         # use a small value at denominator for avoid division by zero when dealing with boxes assigned to background class
-        epsilon = tf.keras.backend.epsilon()
-        metric_value = (boxes_area_intersection) / (boxes_area_pred + boxes_area_true - boxes_area_intersection + epsilon)
+        metric_value = boxes_area_intersection / (boxes_area_pred + boxes_area_true - boxes_area_intersection + epsilon)
 
         # reduce by taking the average iou for each batch sample along boxes dimension, output shape it's (batch,)
         metric_value = tf.reduce_sum(metric_value, axis=-1) / tf.reduce_sum(not_background, axis=-1)
