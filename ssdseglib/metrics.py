@@ -5,11 +5,11 @@ import tensorflow as tf
 def jaccard_iou_segmentation_masks(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     jaccard iou metric, for one-hot encoded semantic segmentation masks with shape (batch, height, width, number of classes)\n
-    you must pass some weights for you classes, and they must sum up to 1 (otherwise the calculation of the loss won't be right)\n
-    predictions must be passed as probabilities
+    you must pass some weights for the classes and they must sum up to 1\n
+    predictions must be passed as probabilities (not logits)
 
     Args:
-        classes_weights (List[float]): weights for your classes, they must sum up to 1 (otherwise the calculation of the loss won't be right)
+        classes_weights (List[float]): weights for your classes and they must sum up to 1
 
     Returns:
         Callable[[tf.Tensor, tf.Tensor], tf.Tensor]: the function for calculating the weighted jaccard iou segmentation masks metric
@@ -99,7 +99,7 @@ def jaccard_iou_bounding_boxes(
         width = (tf.math.exp(width_offsets * standard_deviation_width_offsets) - 1.0) * width_boxes_default
         height = (tf.math.exp(height_offsets * standard_deviation_height_offsets) - 1.0) * height_boxes_default
         
-        # keep only relevant decoded centroids coordinates (not background), this is consinstent with the localization loss calculation
+        # keep only relevant decoded centroids coordinates (not background), this is consinstent with the localization metric calculation
         # the maximum operation applied to width and height it's not right from a conversion point of view, but in this case will ensure iou <= 1.0
         # the problem here it's that we can receive offsets from a network that's still learning/training, and once decoded, they results in invalid boxes (negative width or height)
         # the maximum operation is irrelevant for ground truth data
@@ -114,7 +114,7 @@ def jaccard_iou_bounding_boxes(
         xmax = center_x + (width - 1.0) / 2.0
         ymax = center_y + (height - 1.0) / 2.0
 
-        # keep only relevant decoded corners coordinates (not background), this is consinstent with the localization loss calculation
+        # keep only relevant decoded corners coordinates (not background), this is consinstent with the localization metric calculation
         xmin = xmin * not_background
         ymin = ymin * not_background
         xmax = xmax * not_background
@@ -176,11 +176,11 @@ def jaccard_iou_bounding_boxes(
 def categorical_accuracy(classes_weights: List[float]) -> Callable[[tf.Tensor, tf.Tensor], tf.Tensor]:
     """
     categorical accuracy metric, for object detection classification one-hot encoded data with shape (batch, total boxes, number of classes)\n
-    you must pass some weights for you classes, and they must sum up to 1 (otherwise the calculation of the loss won't be right)\n
-    predictions must be passed as probabilities, argmax it's internally applied to get classes predictions
+    you must pass some weights for the classes, and they must sum up to 1\n
+    predictions must be passed as probabilities (not logits), argmax it's internally applied to get classes predictions
 
     Args:
-        classes_weights (List[float]): weights for your classes, they must sum up to 1 (otherwise the calculation of the loss won't be right)
+        classes_weights (List[float]): weights for your classes, they must sum up to 1
 
     Returns:
         Callable[[tf.Tensor, tf.Tensor], tf.Tensor]: the function for calculating the weighted categorical accuracy metric
