@@ -1,3 +1,4 @@
+from ssdseglib import blocks
 from ssdseglib import boxes
 from ssdseglib import datacoder
 from ssdseglib import evaluators
