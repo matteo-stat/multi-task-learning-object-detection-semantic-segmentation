@@ -7,7 +7,7 @@ class DefaultBoundingBoxes:
             feature_maps_shapes: Tuple[Tuple[int, int], ...],
             feature_maps_aspect_ratios: Union[Tuple[Union[float, int], ...], Tuple[Tuple[Union[float, int], ...], ...]] = (1, 2, 3, 1/2, 1/3),
             boxes_scales: Tuple[float, float] = (0.2, 0.9),
-            centers_padding_from_borders_percentage: float = 0.05,
+            centers_padding_from_borders_percentage: Union[float, Tuple[float ,...]] = 0.05,
             additional_square_box: bool = True,                 
         ) -> None:
         """
@@ -33,19 +33,23 @@ class DefaultBoundingBoxes:
 
         # set attributes with arguments        
         self.feature_maps_shapes = feature_maps_shapes
-        if 0 <= centers_padding_from_borders_percentage < 0.5:
+        self.additional_square_box = additional_square_box
+
+        # if argument centers_padding_from_borders_percentage it's a float then convert it to a tuple of floats
+        if isinstance(centers_padding_from_borders_percentage, float) and 0 <= centers_padding_from_borders_percentage < 0.5:
+            self.centers_padding_from_borders_percentage = (centers_padding_from_borders_percentage,) * len(feature_maps_shapes)
+        elif all(isinstance(item, float) and 0 <= item < 0.5 for item in centers_padding_from_borders_percentage) and len(centers_padding_from_borders_percentage) == len(feature_maps_shapes):
             self.centers_padding_from_borders_percentage = centers_padding_from_borders_percentage
         else:
-            raise ValueError('the percentage padding from borders when calculating default bounding boxes centers must be between 0 and 0.5')
-        self.additional_square_box = additional_square_box
+            raise ValueError('the percentage padding from borders should be a float or a tuple of floats, with values in the range [0, 0.5)')        
 
         # an additional scale it's calculated because it could be needed when calculating the additional square box in last feature map
         self.boxes_scales = np.linspace(boxes_scales[0], boxes_scales[1], len(self.feature_maps_shapes) + 1)
 
-        # if arguments feature_maps_aspect_ratios it's a tuple of numbers then convert it to a tuple of tuples of numbers
+        # if argument feature_maps_aspect_ratios it's a tuple of numbers then convert it to a tuple of tuples of numbers
         # this not an exhaustive validation.. but should be enough to avoid obvious mistakes
         if all(isinstance(item, float) or isinstance(item, int) for item in feature_maps_aspect_ratios):
-            self.feature_maps_aspect_ratios = tuple(feature_maps_aspect_ratios for _ in range(len(feature_maps_shapes)))
+            self.feature_maps_aspect_ratios = tuple(feature_maps_aspect_ratios for _ in range(len(feature_maps_shapes)))        
 
         elif len(feature_maps_aspect_ratios) < len(feature_maps_shapes):
             raise ValueError('if you are passing a tuple of tuples of aspect ratios, then it should have same length as the tuple of feature maps shapes')
@@ -82,7 +86,7 @@ class DefaultBoundingBoxes:
         feature_maps_boxes = []
 
         # calculate boxes for each feature map
-        for feature_map_index, (feature_map_shape, feature_map_aspect_ratios) in enumerate(zip(self.feature_maps_shapes, self.feature_maps_aspect_ratios)):            
+        for feature_map_index, (feature_map_shape, feature_map_aspect_ratios, padding_from_borders) in enumerate(zip(self.feature_maps_shapes, self.feature_maps_aspect_ratios, self.centers_padding_from_borders_percentage)):
 
             # get scales for current feature map and the next one
             boxes_scale_current = self.boxes_scales[feature_map_index]
@@ -108,7 +112,7 @@ class DefaultBoundingBoxes:
             if feature_map_shape[0] == 1:
                 boxes_center_y = np.array([0.5])
             else:
-                centers_padding_from_borders_pixels = self.centers_padding_from_borders_percentage * (feature_map_shape[0] - 1.0)
+                centers_padding_from_borders_pixels = padding_from_borders * (feature_map_shape[0] - 1.0)
                 boxes_center_y = np.linspace(
                     start=centers_padding_from_borders_pixels,
                     stop=feature_map_shape[0] - 1.0 - centers_padding_from_borders_pixels,
@@ -118,7 +122,7 @@ class DefaultBoundingBoxes:
             if feature_map_shape[1] == 1:
                 boxes_center_x = np.array([0.5])
             else:
-                centers_padding_from_borders_pixels = self.centers_padding_from_borders_percentage * (feature_map_shape[1] - 1.0)
+                centers_padding_from_borders_pixels = padding_from_borders * (feature_map_shape[1] - 1.0)
                 boxes_center_x = np.linspace(
                     start=centers_padding_from_borders_pixels,
                     stop=feature_map_shape[1] - 1.0 - centers_padding_from_borders_pixels,
