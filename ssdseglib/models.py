@@ -280,9 +280,12 @@ class MobileNetV2SsdSegBuilder():
 
         return layer_output_labels, layer_output_boxes
 
-    def _semantic_segmentation_head_deeplabv3plus(self) -> tf.keras.layers.Layer:
+    def _semantic_segmentation_head_deeplabv3plus(self, dilation_rates: Tuple[int, int, int] = (6, 12, 18)) -> tf.keras.layers.Layer:
         """
         create a semantic segmentation head
+        
+        Args:
+            dilation_rates (Tuple[int, int, int], optional): a tuple with three different dilation rates for the atrous convolutions. Defaults to (6, 12, 18).
 
         Returns:
             tf.keras.layers.Layer: output segmentation mask
@@ -295,7 +298,7 @@ class MobileNetV2SsdSegBuilder():
         layer_input_encoder = self._layers['backbone-block13-expand-relu6']
 
         # encoder output it's one of the input for the decoder
-        layer_input_decoder_from_encoder = ssdseglib.blocks.deeplabv3plus_encoder(layer=layer_input_encoder, filters=256, dilation_rates=(2, 4, 8))
+        layer_input_decoder_from_encoder = ssdseglib.blocks.deeplabv3plus_encoder(layer=layer_input_encoder, filters=256, dilation_rates=dilation_rates)
 
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # -> semantic segmentation decoder
@@ -315,21 +318,25 @@ class MobileNetV2SsdSegBuilder():
 
         return layer_output
 
-    def get_model_for_training(self, segmentation_architecture: Literal['deeplabv3plus'], object_detection_architecture: Literal['ssdlite']) -> tf.keras.Model:
+    def get_model_for_training(self, segmentation_architecture: Literal['deeplabv3plus'], object_detection_architecture: Literal['ssdlite'], segmentation_dilation_rates: Tuple[int, int, int] = (6, 12, 18)) -> tf.keras.Model:
         """
         create a mobilenet-v2 backbone with a segmentation head and an object detection head\n
         this model performs simultaneously semantic segmentation, classification and regression tasks\n
         the ouputs of this architecture are valid for the training phase
 
+        Args:
+            segmentation_architecture (Literal[''deeplabv3plus']): specify a valid semantic segmentation architecture
+            object_detection_architecture (Literal['ssdlite']): specify a valid object detection architecture
+            segmentation_dilation_rates (Tuple[int, int, int], optional): a tuple with three different dilation rates for the atrous convolutions. Defaults to (6, 12, 18).
+
         Returns:
             tf.keras.Model: the keras model
-        """
-        
+        """                
         # create backbone, segmentation head and object detection head
         self._counter_blocks = 0
         layer_input = self._mobilenetv2_backbone()
         if segmentation_architecture == 'deeplabv3plus':
-            layer_output_mask = self._semantic_segmentation_head_deeplabv3plus()
+            layer_output_mask = self._semantic_segmentation_head_deeplabv3plus(dilation_rates=segmentation_dilation_rates)
         
         if object_detection_architecture == 'ssdlite':
             layer_output_labels, layer_output_boxes = self._object_detection_head_ssdlite()
