@@ -207,27 +207,7 @@ class MobileNetV2SsdSegBuilder():
         layer = self._mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=64, n_repeat=4, strides=2)
         layer = self._mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=96, n_repeat=3, strides=1)
         layer = self._mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=160, n_repeat=3, strides=2)
-        layer = self._mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=320, n_repeat=1, strides=1)
-
-        # additional deptwhise separable convolution blocks for further reduce the feature map size
-        # these additional feature maps will be used for the object detection task
-        self._counter_blocks += 1
-        name_prefix = f'backbone-block{self._counter_blocks}-'
-        layer = tf.keras.layers.SeparableConv2D(filters=360, strides=1, kernel_size=3, padding='valid', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer)
-        layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
-        layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
-
-        self._counter_blocks += 1
-        name_prefix = f'backbone-block{self._counter_blocks}-'
-        layer = tf.keras.layers.SeparableConv2D(filters=480, strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer)
-        layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
-        layer = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
-
-        self._counter_blocks += 1
-        name_prefix = f'backbone-block{self._counter_blocks}-'
-        layer = tf.keras.layers.SeparableConv2D(filters=640, strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer)
-        layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
-        layer_output = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
+        layer_output = self._mobilenetv2_block_sequence(layer=layer, expansion_factor=6, channels_output=320, n_repeat=1, strides=1)
 
         # create a dictionary with all the backbone layers, using layers names as keys
         self._layers = {layer.name: layer.output for layer in tf.keras.Model(inputs=layer_input, outputs=layer_output).layers}
@@ -248,9 +228,26 @@ class MobileNetV2SsdSegBuilder():
         # these feature maps have different shapes, for better handling multi scale objects
         layer_input_1 = self._layers['backbone-block13-expand-relu6']
         layer_input_2 = self._layers['backbone-block16-project-batchnorm']
-        layer_input_3 = self._layers['backbone-block17-relu6']
-        layer_input_4 = self._layers['backbone-block18-relu6']
-        layer_input_5 = self._layers['backbone-block19-relu6']
+
+        # add to mobilenetv2 backbone other depthwise separable convolutions to further reduce feature map size
+        # these additional feature maps will be inputs for ssd
+        self._counter_blocks += 1
+        name_prefix = f'backbone-block{self._counter_blocks}-'
+        layer = tf.keras.layers.SeparableConv2D(filters=360, strides=1, kernel_size=3, padding='valid', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_2)
+        layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
+        layer_input_3 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
+
+        self._counter_blocks += 1
+        name_prefix = f'backbone-block{self._counter_blocks}-'
+        layer = tf.keras.layers.SeparableConv2D(filters=480, strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_3)
+        layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
+        layer_input_4 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
+
+        self._counter_blocks += 1
+        name_prefix = f'backbone-block{self._counter_blocks}-'
+        layer = tf.keras.layers.SeparableConv2D(filters=640, strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_4)
+        layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
+        layer_input_5 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
 
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # -> object detection classification
@@ -298,7 +295,7 @@ class MobileNetV2SsdSegBuilder():
         layer_input_encoder = self._layers['backbone-block13-expand-relu6']
 
         # encoder output it's one of the input for the decoder
-        layer_input_decoder_from_encoder = ssdseglib.blocks.deeplabv3plus_encoder(layer=layer_input_encoder, filters=256, dilation_rates=(6, 12, 18))
+        layer_input_decoder_from_encoder = ssdseglib.blocks.deeplabv3plus_encoder(layer=layer_input_encoder, filters=256, dilation_rates=(2, 4, 8))
 
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # -> semantic segmentation decoder
