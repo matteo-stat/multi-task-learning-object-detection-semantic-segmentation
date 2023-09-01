@@ -156,7 +156,7 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         softmax_loss_background = tf.math.reduce_sum(softmax_loss_background, axis=-1)
 
         # count number of background samples for each batch
-        # number_of_background_samples_per_batch = tf.reduce_sum(background_samples_to_keep, axis=-1)
+        number_of_background_samples_per_batch = tf.reduce_sum(background_samples_to_keep, axis=-1)
 
         
     # --------------------------------------------------------------------------------------------------
@@ -167,7 +167,7 @@ def confidence_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
     # divide the loss by the number of samples that are not background
     # if there are only background samples, then divide by 1
-    softmax_loss_balanced = softmax_loss_balanced / tf.math.maximum(number_of_non_background_samples_per_batch, 1.0)
+    softmax_loss_balanced = softmax_loss_balanced / tf.math.maximum(number_of_non_background_samples_per_batch + number_of_background_samples_per_batch, 1.0)
 
     return softmax_loss_balanced
 

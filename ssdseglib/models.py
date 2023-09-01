@@ -233,21 +233,15 @@ class MobileNetV2SsdSegBuilder():
         # these additional feature maps will be inputs for ssd
         self._counter_blocks += 1
         name_prefix = f'backbone-block{self._counter_blocks}-'
-        layer = tf.keras.layers.SeparableConv2D(filters=360, strides=1, kernel_size=3, padding='valid', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_2)
+        layer = tf.keras.layers.SeparableConv2D(filters=320, strides=2, kernel_size=3, padding='valid', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_2)
         layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
         layer_input_3 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
 
         self._counter_blocks += 1
         name_prefix = f'backbone-block{self._counter_blocks}-'
-        layer = tf.keras.layers.SeparableConv2D(filters=480, strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_3)
+        layer = tf.keras.layers.SeparableConv2D(filters=360, strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_3)
         layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
         layer_input_4 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
-
-        self._counter_blocks += 1
-        name_prefix = f'backbone-block{self._counter_blocks}-'
-        layer = tf.keras.layers.SeparableConv2D(filters=640, strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_4)
-        layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
-        layer_input_5 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
 
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # -> object detection classification
@@ -257,10 +251,9 @@ class MobileNetV2SsdSegBuilder():
         layer_labels_2 = ssdseglib.blocks.ssdlite(layer=layer_input_2, filters=self.number_of_boxes_per_point[1]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels2-')
         layer_labels_3 = ssdseglib.blocks.ssdlite(layer=layer_input_3, filters=self.number_of_boxes_per_point[2]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels3-')
         layer_labels_4 = ssdseglib.blocks.ssdlite(layer=layer_input_4, filters=self.number_of_boxes_per_point[3]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels4-')
-        layer_labels_5 = ssdseglib.blocks.ssdlite(layer=layer_input_5, filters=self.number_of_boxes_per_point[4]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels5-')
 
         # concatenate along boxes dimension
-        layer_labels_concat = tf.keras.layers.Concatenate(axis=1, name=f'labels-concat')([layer_labels_1, layer_labels_2, layer_labels_3, layer_labels_4, layer_labels_5])
+        layer_labels_concat = tf.keras.layers.Concatenate(axis=1, name=f'labels-concat')([layer_labels_1, layer_labels_2, layer_labels_3, layer_labels_4])
 
         # softmax for outputting classes probabilities
         layer_output_labels = tf.keras.layers.Softmax(name='output-labels')(layer_labels_concat)
@@ -273,10 +266,9 @@ class MobileNetV2SsdSegBuilder():
         layer_boxes_2 = ssdseglib.blocks.ssdlite(layer=layer_input_2, filters=self.number_of_boxes_per_point[1]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes2-')
         layer_boxes_3 = ssdseglib.blocks.ssdlite(layer=layer_input_3, filters=self.number_of_boxes_per_point[2]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes3-')
         layer_boxes_4 = ssdseglib.blocks.ssdlite(layer=layer_input_4, filters=self.number_of_boxes_per_point[3]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes4-')
-        layer_boxes_5 = ssdseglib.blocks.ssdlite(layer=layer_input_5, filters=self.number_of_boxes_per_point[4]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes5-')
 
         # concatenate along boxes dimension
-        layer_output_boxes = tf.keras.layers.Concatenate(axis=1, name=f'output-boxes')([layer_boxes_1, layer_boxes_2, layer_boxes_3, layer_boxes_4, layer_boxes_5])
+        layer_output_boxes = tf.keras.layers.Concatenate(axis=1, name=f'output-boxes')([layer_boxes_1, layer_boxes_2, layer_boxes_3, layer_boxes_4])
 
         return layer_output_labels, layer_output_boxes
 
