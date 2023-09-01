@@ -233,7 +233,7 @@ class MobileNetV2SsdSegBuilder():
         # these additional feature maps will be inputs for ssd
         self._counter_blocks += 1
         name_prefix = f'backbone-block{self._counter_blocks}-'
-        layer = tf.keras.layers.SeparableConv2D(filters=320, strides=2, kernel_size=3, padding='valid', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_2)
+        layer = tf.keras.layers.SeparableConv2D(filters=320, strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_2)
         layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
         layer_input_3 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
 
