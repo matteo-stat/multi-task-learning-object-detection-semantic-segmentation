@@ -348,7 +348,8 @@ class MobileNetV2SsdSegBuilder():
             max_number_of_boxes_per_sample: int,
             boxes_iou_threshold: float,
             labels_probability_threshold: float,
-            suppress_background_boxes: bool
+            suppress_background_boxes: bool,
+            use_segmentation_suppression: bool
         ) -> tf.keras.Model:
         """
         transform a trained model to an inference one\b
@@ -396,6 +397,14 @@ class MobileNetV2SsdSegBuilder():
             name='output-object-detection'
         )
         non_maximum_suppression.trainable = False
+
+        if use_segmentation_suppression:
+            # segmentation suppression
+            segmentation_suppression = ssdseglib.layers.SegmentationSuppression(name='segmentation-suppression')
+            segmentation_suppression.trainable = False
+
+            # process probabilities by segmentation suppression
+            layer_labels = segmentation_suppression(segmentation_mask=layer_output_mask, labels_probabilities=layer_labels)
 
         # convert predicted centroids offsets to boxes corners coordinates
         layer_boxes_decoded = decode_boxes_centroids_offsets(layer_boxes)

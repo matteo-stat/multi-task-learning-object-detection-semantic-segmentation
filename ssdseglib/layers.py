@@ -130,7 +130,7 @@ class NonMaximumSuppression(tf.keras.layers.Layer):
 
         Args:
             boxes_corners_coordinates (tf.Tensor): predicted boxes corners coordinates with the following order (ymin, xmin, ymax, xmax), expected shape it's (batch, total boxes, 4)
-            labels_probabilities (tf.Tensor): predicted labels probabilities, expected shape it's (batch, total boxes)
+            labels_probabilities (tf.Tensor): predicted labels probabilities, expected shape it's (batch, total boxes, classes)
 
         Returns:
             tf.Tensor: _description_
@@ -174,3 +174,39 @@ class NonMaximumSuppression(tf.keras.layers.Layer):
             'labels_probability_threshold': self.labels_probability_threshold,
             'suppress_background_boxes': self.suppress_background_boxes
         }
+    
+@tf.keras.saving.register_keras_serializable(name='SegmentationSuppression')
+class SegmentationSuppression(tf.keras.layers.Layer):
+    def __init__(self, **kwargs):
+        """
+        process the object detection outputs with semantic segmentation output\n
+        if a class was not detected by semantic segmentation, then it will be ignored in object detection
+        """
+       # init from parent class
+        super().__init__(**kwargs)
+
+    def call(self, segmentation_mask: tf.Tensor, labels_probabilities: tf.Tensor) -> tf.Tensor:
+        """
+        process the object detection outputs with semantic segmentation output\n
+        if a class was not detected by semantic segmentation, then it will be ignored in object detection  
+
+        Args:
+            segmentation_mask (tf.Tensor): predictes segmentation mask, expected shape it's (batch, height, width, classes)
+            labels_probabilities (tf.Tensor): predicted labels probabilities, expected shape it's (batch, total boxes)
+
+        Returns:
+            tf.Tensor: _description_
+        """
+
+        # convert probabilities to class prediction
+        segmentation_mask = tf.math.argmax(segmentation_mask, axis=-1)
+        segmentation_mask = tf.one_hot(segmentation_mask, depth=4, axis=3)
+
+        # class suppression (if class was not detected by segmentation it's 0, otherwise 1)
+        is_class_segmented = tf.clip_by_value(tf.math.reduce_sum(segmentation_mask, axis=(0, 1, 2)), 0, 1)
+
+        # suppress probabilities for class not segmented
+        probabilities_suppressed = tf.math.multiply(labels_probabilities, is_class_segmented)
+        
+        return probabilities_suppressed
+   
