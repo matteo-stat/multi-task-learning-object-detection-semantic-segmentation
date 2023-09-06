@@ -474,11 +474,8 @@ class ShuffleNetV2SsdSegBuilder():
         pass
 
     def _shufflenetv2_downsampling_unit(self, layer: tf.keras.layers.Layer, output_channels: int = None) -> tf.keras.layers.Layer:
-
-        if output_channels is None:
-            filters = tf.shape(layer)[-1]
-        else:
-            filters = output_channels // 2
+        
+        filters = output_channels // 2
 
         # branch downsampling left
         branch_left = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=2, padding='same', depth_multiplier=1, use_bias=False)(layer)
@@ -504,20 +501,19 @@ class ShuffleNetV2SsdSegBuilder():
         layer_concat = tf.keras.layers.Concatenate(axis=-1)([branch_left, branch_right])
 
         # channels shuffle
-        layer_output = layer_concat
+        # layer_output = layer_concat
 
-        return layer_output
+        return layer_concat
     
-    def _shufflenetv2_basic_unit(self, layer: tf.keras.layers.Layer) -> tf.keras.layers.Layer:
+    def _shufflenetv2_basic_unit(self, layer: tf.keras.layers.Layer, output_channels: int = None) -> tf.keras.layers.Layer:
+
+        filters = output_channels // 2
 
         # split input channels evenly in two branches
         branch_identity, branch_conv = tf.split(layer, num_or_size_splits=2, axis=-1)
         
-        # number of filters to apply in the convolutions branch
-        filters = tf.shape(branch_conv)[-1]
-
         # branch convolution
-        branch_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False)(layer)
+        branch_conv = tf.keras.layers.Conv2D(filters=10, kernel_size=1, padding='same', use_bias=False)(branch_conv)
         branch_conv = tf.keras.layers.BatchNormalization()(branch_conv)
         branch_conv = tf.keras.layers.ReLU()(branch_conv)
 
@@ -532,10 +528,9 @@ class ShuffleNetV2SsdSegBuilder():
         layer_concat = tf.keras.layers.Concatenate(axis=-1)([branch_identity, branch_conv])
 
         # channels shuffle
-        layer_output = layer_concat
+        # layer_output = layer_concat
 
-        return layer_output    
-
+        return layer_concat    
 
     def _shufflenetv2_backbone(self) -> tf.keras.layers.Layer:
         """
@@ -564,22 +559,22 @@ class ShuffleNetV2SsdSegBuilder():
         layer = tf.keras.layers.MaxPooling2D(pool_size=3, strides=2, padding='same')(layer)
 
         # shufflenet stage 2
-        layer = self._shufflenetv2_downsampling_unit(layer, output_channels=self.output_channels_stage2)
-        layer = self._shufflenetv2_basic_unit(layer)
+        layer = self._shufflenetv2_downsampling_unit(layer, output_channels=self.stages_output_channels[0])
+        layer = self._shufflenetv2_basic_unit(layer, output_channels=self.stages_output_channels[0])
 
         # shufflenet stage 3
-        layer = self._shufflenetv2_downsampling_unit(layer)
-        layer = self._shufflenetv2_basic_unit(layer)
+        layer = self._shufflenetv2_downsampling_unit(layer, output_channels=self.stages_output_channels[1])
+        layer = self._shufflenetv2_basic_unit(layer, output_channels=self.stages_output_channels[1])
 
         # shufflenet stage 4
-        layer = self._shufflenetv2_downsampling_unit(layer)
-        layer_output = self._shufflenetv2_basic_unit(layer)
+        layer = self._shufflenetv2_downsampling_unit(layer, output_channels=self.stages_output_channels[2])
+        layer_output = self._shufflenetv2_basic_unit(layer, output_channels=self.stages_output_channels[2])
 
         # create a dictionary with all the backbone layers, using layers names as keys
         self._layers = {layer.name: layer.output for layer in tf.keras.Model(inputs=layer_input, outputs=layer_output).layers}
 
         return layer_input
-
+    
     def _object_detection_head_ssdlite(self) -> Tuple[tf.keras.layers.Layer, tf.keras.layers.Layer]:
         """
         create an object detection head using ssd framework for object detection
