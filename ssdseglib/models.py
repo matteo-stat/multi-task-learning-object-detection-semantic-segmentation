@@ -470,47 +470,59 @@ class ShuffleNetV2SsdSegBuilder():
         self._standard_deviation_center_x_offsets, self._standard_deviation_center_y_offsets, self._standard_deviation_width_offsets, self._standard_deviation_height_offsets = standard_deviations_centroids_offsets        
         self._layers = {}    
 
-    def _shufflenetv2_block_channels_shuffle(self, layer: tf.keras.layers.Layer) -> tf.keras.layers.Layer:
-        pass
+    def _shufflenetv2_block_channels_shuffle(self, layer: tf.keras.layers.Layer, name_prefix: str, groups: int = 2) -> tf.keras.layers.Layer:
 
-    def _shufflenetv2_downsampling_unit(self, layer: tf.keras.layers.Layer, output_channels: int = None) -> tf.keras.layers.Layer:
+        _, height, width, channels = [int(value) for value in tf.shape(layer)]
+
+        # add a group dimension
+        layer = tf.keras.layers.Reshape(target_shape=(height, width, groups, channels // groups), name=f'{name_prefix}reshape-pre-channels-shuffle')(layer)
+
+        # permute the last two dimension, shuffling the channels
+        layer = tf.keras.layers.Permute(dims=(1, 2, 4, 3), name=f'{name_prefix}channels-shuffle')(layer)
+
+        # reshape back to the original shape
+        layer_output = tf.keras.layers.Reshape(target_shape=(height, width, channels), name=f'{name_prefix}reshape-post-channels-shuffle')(layer)
+
+        return layer_output
+
+    def _shufflenetv2_block_downsampling_unit(self, layer: tf.keras.layers.Layer, name_prefix: str, output_channels: int = None) -> tf.keras.layers.Layer:
         
         filters = output_channels // 2
 
         # branch downsampling left
-        branch_left = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=2, padding='same', depth_multiplier=1, use_bias=False)(layer)
-        branch_left = tf.keras.layers.BatchNormalization()(branch_left)
+        branch_left = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=2, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}branch-left-depthconv')(layer)
+        branch_left = tf.keras.layers.BatchNormalization(name=f'{name_prefix}branch-left-depthconv-batchnorm')(branch_left)
         
-        branch_left = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False)(branch_left)        
-        branch_left = tf.keras.layers.BatchNormalization()(branch_left)
-        branch_left = tf.keras.layers.ReLU()(branch_left)
+        branch_left = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}branch-left-conv')(branch_left)        
+        branch_left = tf.keras.layers.BatchNormalization(name=f'{name_prefix}branch-left-conv-batchnorm')(branch_left)
+        branch_left = tf.keras.layers.ReLU(name=f'{name_prefix}branch-left-conv-relu')(branch_left)
 
         # branch downsampling right
-        branch_right = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False)(layer)
-        branch_right = tf.keras.layers.BatchNormalization()(branch_right)
-        branch_right = tf.keras.layers.ReLU()(branch_right)
+        branch_right = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}')(layer)
+        branch_right = tf.keras.layers.BatchNormalization(name=f'{name_prefix}')(branch_right)
+        branch_right = tf.keras.layers.ReLU(name=f'{name_prefix}')(branch_right)
 
-        branch_right = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=2, padding='same', depth_multiplier=1, use_bias=False)(branch_right)
-        branch_right = tf.keras.layers.BatchNormalization()(branch_right)
+        branch_right = tf.keras.layers.DepthwiseConv2D(kernel_size=3, strides=2, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}')(branch_right)
+        branch_right = tf.keras.layers.BatchNormalization(name=f'{name_prefix}')(branch_right)
         
-        branch_right = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False)(branch_right)
-        branch_right = tf.keras.layers.BatchNormalization()(branch_right)
-        branch_right = tf.keras.layers.ReLU()(branch_right)
+        branch_right = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}')(branch_right)
+        branch_right = tf.keras.layers.BatchNormalization(name=f'{name_prefix}')(branch_right)
+        branch_right = tf.keras.layers.ReLU(name=f'{name_prefix}')(branch_right)
 
         # concat the two branches
-        layer_concat = tf.keras.layers.Concatenate(axis=-1)([branch_left, branch_right])
+        layer_concat = tf.keras.layers.Concatenate(axis=-1, name=f'{name_prefix}')([branch_left, branch_right])
 
         # channels shuffle
-        # layer_output = layer_concat
+        layer_output = self._shufflenetv2_block_channels_shuffle(layer_concat, name_prefix=f'{name_prefix}')
 
-        return layer_concat
+        return layer_output
     
-    def _shufflenetv2_basic_unit(self, layer: tf.keras.layers.Layer, output_channels: int = None) -> tf.keras.layers.Layer:
+    def _shufflenetv2_block_basic_unit(self, layer: tf.keras.layers.Layer, output_channels: int = None) -> tf.keras.layers.Layer:
 
         filters = output_channels // 2
 
         # split input channels evenly in two branches
-        branch_identity, branch_conv = tf.split(layer, num_or_size_splits=2, axis=-1)
+        branch_identity, branch_conv = ssdseglib.layers.Split(num_or_size_splits=2, axis=-1)(layer)
         
         # branch convolution
         branch_conv = tf.keras.layers.Conv2D(filters=10, kernel_size=1, padding='same', use_bias=False)(branch_conv)
@@ -528,9 +540,9 @@ class ShuffleNetV2SsdSegBuilder():
         layer_concat = tf.keras.layers.Concatenate(axis=-1)([branch_identity, branch_conv])
 
         # channels shuffle
-        # layer_output = layer_concat
+        layer_output = self._shufflenetv2_block_channels_shuffle(layer_concat)
 
-        return layer_concat    
+        return layer_output    
 
     def _shufflenetv2_backbone(self) -> tf.keras.layers.Layer:
         """
@@ -559,16 +571,16 @@ class ShuffleNetV2SsdSegBuilder():
         layer = tf.keras.layers.MaxPooling2D(pool_size=3, strides=2, padding='same')(layer)
 
         # shufflenet stage 2
-        layer = self._shufflenetv2_downsampling_unit(layer, output_channels=self.stages_output_channels[0])
-        layer = self._shufflenetv2_basic_unit(layer, output_channels=self.stages_output_channels[0])
+        layer = self._shufflenetv2_block_downsampling_unit(layer, output_channels=self.stages_output_channels[0])
+        layer = self._shufflenetv2_block_basic_unit(layer, output_channels=self.stages_output_channels[0])
 
         # shufflenet stage 3
-        layer = self._shufflenetv2_downsampling_unit(layer, output_channels=self.stages_output_channels[1])
-        layer = self._shufflenetv2_basic_unit(layer, output_channels=self.stages_output_channels[1])
+        layer = self._shufflenetv2_block_downsampling_unit(layer, output_channels=self.stages_output_channels[1])
+        layer = self._shufflenetv2_block_basic_unit(layer, output_channels=self.stages_output_channels[1])
 
         # shufflenet stage 4
-        layer = self._shufflenetv2_downsampling_unit(layer, output_channels=self.stages_output_channels[2])
-        layer_output = self._shufflenetv2_basic_unit(layer, output_channels=self.stages_output_channels[2])
+        layer = self._shufflenetv2_block_downsampling_unit(layer, output_channels=self.stages_output_channels[2])
+        layer_output = self._shufflenetv2_block_basic_unit(layer, output_channels=self.stages_output_channels[2])
 
         # create a dictionary with all the backbone layers, using layers names as keys
         self._layers = {layer.name: layer.output for layer in tf.keras.Model(inputs=layer_input, outputs=layer_output).layers}

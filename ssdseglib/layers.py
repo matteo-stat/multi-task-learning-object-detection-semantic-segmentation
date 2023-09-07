@@ -1,4 +1,5 @@
 import tensorflow as tf
+from typing import Union, List
 
 @tf.keras.saving.register_keras_serializable(name='DecodeBoxesCentroidsOffsets')
 class DecodeBoxesCentroidsOffsets(tf.keras.layers.Layer):
@@ -209,4 +210,24 @@ class SegmentationSuppression(tf.keras.layers.Layer):
         probabilities_suppressed = tf.math.multiply(labels_probabilities, is_class_segmented)
         
         return probabilities_suppressed
+
+@tf.keras.saving.register_keras_serializable(name='Split')
+class Split(tf.keras.layers.Layer):
+    def __init__(self, num_or_size_splits: Union[int, List[int]], axis: int, num: int = None, **kwargs):
+        # init from parent class
+        super().__init__(**kwargs)
+        
+        # set attributes
+        self.num_or_size_splits = num_or_size_splits
+        self.axis = axis
+        self.num = num
+
+    def call(self, value: tf.Tensor) -> List[tf.Tensor]:
+        return tf.split(value, num_or_size_splits=self.num_or_size_splits, axis=self.axis, num=self.num)
    
+    def get_config(self):
+        return {
+            'num_or_size_split': self.num_or_size_split,
+            'axis': self.axis,
+            'num': self.num
+        }
