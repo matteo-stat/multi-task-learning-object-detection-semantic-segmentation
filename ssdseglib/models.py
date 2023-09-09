@@ -428,6 +428,7 @@ class ShuffleNetV2SsdSegBuilder():
             input_image_shape: Tuple[int, int, int],
             model_size: Literal['0.5x', '1x', '1.5x', '2x'],
             use_additional_depthwise_convolution: bool,
+            use_residual_connections: bool,
             number_of_boxes_per_point: Union[int, List[int]],
             number_of_classes: int,
             center_x_boxes_default: ndarray[float],
@@ -443,7 +444,8 @@ class ShuffleNetV2SsdSegBuilder():
         Args:
             input_image_shape (Tuple[int, int, int]): the input image shape as (height, width, channels)
             model_size (Literal['0.5x', '1x', '1.5x', '2x']): the shufflenet-v2 model size
-            use_additional_depthwise_convolution (bool): if True add an additional depthwise convolution before the first pointwise convolution in each building block, the paper suggests that may improved object detection
+            use_additional_depthwise_convolution (bool): if True add an additional depthwise convolution before the first pointwise convolution in each building block, the paper suggests that may improved object detection            
+            use_residual_connections (bool): if True add a residual connection in shufflenet-v2 basic units
             number_of_boxes_per_point (Union[int, List[int]]): number of default bounding boxes for each point in default grids
             number_of_classes (int): number of classes for the object detection head            
             center_x_boxes_default (ndarray[float]): array of coordinates for center x (centroids coordinates)
@@ -465,6 +467,7 @@ class ShuffleNetV2SsdSegBuilder():
         else:
             raise ValueError('invalid "model_size" value! available values are "0.5x", "1x", "1.5x", "2x"')
         self.use_additional_depthwise_convolution = use_additional_depthwise_convolution
+        self.use_residual_connections = use_residual_connections
         self.number_of_boxes_per_point = (number_of_boxes_per_point,) * 4 if isinstance(number_of_boxes_per_point, int) else  number_of_boxes_per_point
         self.number_of_classes = number_of_classes
         self._center_x_boxes_default = center_x_boxes_default
@@ -567,14 +570,16 @@ class ShuffleNetV2SsdSegBuilder():
         filters = output_channels // 2
 
         # split input channels evenly in two branches
-        branch_identity, branch_conv = ssdseglib.layers.Split(num_or_size_splits=2, axis=-1, name=f'{name_prefix}channels-split')(layer)
+        layer_identity, layer_conv = ssdseglib.layers.Split(num_or_size_splits=2, axis=-1, name=f'{name_prefix}channels-split')(layer)
         
         # branch with convolutions, as described in the paper
         if self.use_additional_depthwise_convolution:
-            branch_conv = tf.keras.layers.DepthwiseConv2D(kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}branch-conv-depthconv0')(branch_conv)
+            branch_conv = tf.keras.layers.DepthwiseConv2D(kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}branch-conv-depthconv0')(layer_conv)
             branch_conv = tf.keras.layers.BatchNormalization(name=f'{name_prefix}branch-conv-batchnorm0')(branch_conv)
-            
-        branch_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}branch-conv-conv1')(branch_conv)
+            branch_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}branch-conv-conv1')(branch_conv)
+        else:            
+            branch_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}branch-conv-conv1')(layer_conv)
+
         branch_conv = tf.keras.layers.BatchNormalization(name=f'{name_prefix}branch-conv-batchnorm1')(branch_conv)
         branch_conv = tf.keras.layers.ReLU(name=f'{name_prefix}branch-conv-relu1')(branch_conv)
 
@@ -583,10 +588,14 @@ class ShuffleNetV2SsdSegBuilder():
         
         branch_conv = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}branch-conv-conv3')(branch_conv)
         branch_conv = tf.keras.layers.BatchNormalization(name=f'{name_prefix}branch-conv-batchnorm3')(branch_conv)
+
+        if self.use_residual_connections:
+            branch_conv = tf.keras.layers.Add(name=f'{name_prefix}branch-conv-add')([branch_conv, layer_conv])
+
         branch_conv = tf.keras.layers.ReLU(name=f'{name_prefix}branch-conv-relu3')(branch_conv)
 
         # concat branches
-        layer_concat = tf.keras.layers.Concatenate(axis=-1, name=f'{name_prefix}concat')([branch_identity, branch_conv])
+        layer_concat = tf.keras.layers.Concatenate(axis=-1, name=f'{name_prefix}concat')([layer_identity, branch_conv])
 
         # channels shuffle
         layer_output = self._shufflenetv2_block_channels_shuffle(layer_concat, name_prefix=f'{name_prefix}')
@@ -657,15 +666,13 @@ class ShuffleNetV2SsdSegBuilder():
         layer_input_1 = self._layers['backbone-stage3-block7-reshape-post-channels-shuffle']
         layer_input_2 = self._layers['backbone-stage4-block3-reshape-post-channels-shuffle']
 
-        # add to mobilenetv2 backbone other depthwise separable convolutions to further reduce feature map size
+        # add to shufflenet-v2 backbone other depthwise separable convolutions to further reduce feature map size
         # these additional feature maps will be inputs for ssd
-        self._counter_blocks += 1
         name_prefix = 'backbone-stage5-block1-'
         layer = tf.keras.layers.SeparableConv2D(filters=self.output_channels_stages[4], strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_2)
         layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
         layer_input_3 = tf.keras.layers.ReLU(name=f'{name_prefix}relu')(layer)
 
-        self._counter_blocks += 1
         name_prefix = 'backbone-stage5-block2-'
         layer = tf.keras.layers.SeparableConv2D(filters=self.output_channels_stages[4], strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_3)
         layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
