@@ -733,23 +733,25 @@ class ShuffleNetV2SsdSegBuilder():
         # the semantic segmentation decoder use an intermediate feature map for sharpen the output coming from the encoder
         # given the architecture of shufflenet-v2, i decided to concatenate two feature maps, with output stride 8 and 4
         
-        # backbone layer with output stride 4
-        layer_backbone_output_stride_4 = self._layers['backbone-stage1-maxpool']
-        layer_backbone_output_stride_4 = tf.keras.layers.BatchNormalization(name='backbone-output-stride4-batchnorm')(layer_backbone_output_stride_4)
+        # # backbone layer with output stride 4
+        # layer_backbone_output_stride_4 = self._layers['backbone-stage1-maxpool']
+        # layer_backbone_output_stride_4 = tf.keras.layers.BatchNormalization(name='backbone-output-stride4-batchnorm')(layer_backbone_output_stride_4)
 
-        # backbone layer with output stride 8, upsampled by deconvolution to output stride 4
-        layer_backbone_output_stride_8 = self._layers['backbone-stage2-block3-reshape-post-channels-shuffle']
-        layer_backbone_output_stride_8_upsampled = tf.keras.layers.Conv2DTranspose(filters=self.output_channels_stages[2], kernel_size=3, strides=2, padding='same', use_bias=False, name='backbone-output-stride8-upsampled-deconv')(layer_backbone_output_stride_8)
-        layer_backbone_output_stride_8_upsampled = tf.keras.layers.BatchNormalization(name='backbone-output-stride8-upsampled-batchnorm')(layer_backbone_output_stride_8_upsampled)
+        # # backbone layer with output stride 8, upsampled by deconvolution to output stride 4
+        # layer_backbone_output_stride_8 = self._layers['backbone-stage2-block3-reshape-post-channels-shuffle']
+        # layer_backbone_output_stride_8_upsampled = tf.keras.layers.Conv2DTranspose(filters=self.output_channels_stages[2], kernel_size=3, strides=2, padding='same', use_bias=False, name='backbone-output-stride8-upsampled-deconv')(layer_backbone_output_stride_8)
+        # layer_backbone_output_stride_8_upsampled = tf.keras.layers.BatchNormalization(name='backbone-output-stride8-upsampled-batchnorm')(layer_backbone_output_stride_8_upsampled)
 
-        # concatenate
-        layer_input_decoder_from_backbone = tf.keras.layers.Concatenate(name='backbone-intermediate-output-for-mask-decoder')([layer_backbone_output_stride_4, layer_backbone_output_stride_8_upsampled])
+        # # concatenate
+        # layer_input_decoder_from_backbone = tf.keras.layers.Concatenate(name='backbone-intermediate-output-for-mask-decoder')([layer_backbone_output_stride_4, layer_backbone_output_stride_8_upsampled])
+
+        layer_input_decoder_from_backbone = self._layers['backbone-stage1-maxpool']
 
         # semantic segmentation decoder output (mask)
         layer_output = ssdseglib.blocks.deeplabv3plus_decoder(
             layer_encoder=layer_input_decoder_from_encoder,
             layer_backbone=layer_input_decoder_from_backbone,
-            filters_backbone=48,
+            filters_backbone=24,
             filters_decoder=256,
             output_height_width=self.input_image_shape[0:2],
             output_channels=self.number_of_classes
