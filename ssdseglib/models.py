@@ -745,7 +745,7 @@ class ShuffleNetV2SsdSegBuilder():
         # # concatenate
         # layer_input_decoder_from_backbone = tf.keras.layers.Concatenate(name='backbone-intermediate-output-for-mask-decoder')([layer_backbone_output_stride_4, layer_backbone_output_stride_8_upsampled])
 
-        layer_input_decoder_from_backbone = self._layers['backbone-stage1-maxpool']
+        layer_input_decoder_from_backbone = self._layers['backbone-stage2-block3-reshape-post-channels-shuffle']
 
         # semantic segmentation decoder output (mask)
         layer_output = ssdseglib.blocks.deeplabv3plus_decoder(
@@ -774,7 +774,6 @@ class ShuffleNetV2SsdSegBuilder():
             tf.keras.Model: the keras model
         """                
         # create backbone, segmentation head and object detection head
-        self._counter_blocks = 0
         layer_input = self._shufflenetv2_backbone()
         if segmentation_architecture == 'deeplabv3plus':
             layer_output_mask = self._semantic_segmentation_head_deeplabv3plus(dilation_rates=segmentation_dilation_rates)
