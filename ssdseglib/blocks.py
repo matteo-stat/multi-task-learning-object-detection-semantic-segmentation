@@ -9,7 +9,7 @@ def deeplabv3plus_encoder(layer: tf.keras.layers.Layer, filters: int = 256, dila
     the aspp block it's composed by a pointwise convolution and three atrous separable convolution with different dilation rates\n
     the pooling block apply global average pooling to the height-width dimension, followed by a pointwise convolution\n
     the outputs from aspp block and pooling block are concatenated along the axis channel and processed by a pointwise convolution\n
-    all convolutions operations are followed by batch normalization and relu6 activation
+    all convolutions operations are followed by batch normalization and relu activation
 
     Args:
         layer (tf.keras.layers.Layer): input layer for this block
@@ -27,22 +27,22 @@ def deeplabv3plus_encoder(layer: tf.keras.layers.Layer, filters: int = 256, dila
     # aspp block - pointwise convolution branch    
     layer_pointwise = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}pointwise-conv')(layer)
     layer_pointwise = tf.keras.layers.BatchNormalization(name=f'{name_prefix}pointwise-batchnorm')(layer_pointwise)
-    layer_pointwise = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}pointwise-relu6')(layer_pointwise)
+    layer_pointwise = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}pointwise-relu{int(relu_max_value)}')(layer_pointwise)
 
     # aspp block - 1st atrous separable convolution branch   
     layer_atrous_1 = tf.keras.layers.SeparableConv2D(filters=filters, kernel_size=3, padding='same', dilation_rate=dilation_rates[0], depth_multiplier=1, use_bias=False, name=f'{name_prefix}atrous1-sepconv')(layer)
     layer_atrous_1 = tf.keras.layers.BatchNormalization(name=f'{name_prefix}atrous1-batchnorm')(layer_atrous_1)
-    layer_atrous_1 = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}atrous1-relu6')(layer_atrous_1)
+    layer_atrous_1 = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}atrous1-relu{int(relu_max_value)}')(layer_atrous_1)
 
     # aspp block - 2nd atrous separable convolution branch
     layer_atrous_2 = tf.keras.layers.SeparableConv2D(filters=filters, kernel_size=3, padding='same', dilation_rate=dilation_rates[1], depth_multiplier=1, use_bias=False, name=f'{name_prefix}atrous2-sepconv')(layer)
     layer_atrous_2 = tf.keras.layers.BatchNormalization(name=f'{name_prefix}atrous2-batchnorm')(layer_atrous_2)
-    layer_atrous_2 = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}atrous2-relu6')(layer_atrous_2)
+    layer_atrous_2 = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}atrous2-relu{int(relu_max_value)}')(layer_atrous_2)
 
     # aspp block - 3rd atrous separable convolution branch
     layer_atrous_3 = tf.keras.layers.SeparableConv2D(filters=filters, kernel_size=3, padding='same', dilation_rate=dilation_rates[2], depth_multiplier=1, use_bias=False, name=f'{name_prefix}atrous3-sepconv')(layer)
     layer_atrous_3 = tf.keras.layers.BatchNormalization(name=f'{name_prefix}atrous3-batchnorm')(layer_atrous_3)
-    layer_atrous_3 = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}atrous3-relu6')(layer_atrous_3)
+    layer_atrous_3 = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}atrous3-relu{int(relu_max_value)}')(layer_atrous_3)
 
     # set the prefix for layers names (pooling)
     name_prefix = f'mask-encoder-pooling-'
@@ -57,7 +57,7 @@ def deeplabv3plus_encoder(layer: tf.keras.layers.Layer, filters: int = 256, dila
     layer_pooling = tf.keras.layers.GlobalAveragePooling2D(data_format='channels_last', keepdims=True, name=f'{name_prefix}globalavgpool')(layer)
     layer_pooling = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}conv')(layer_pooling)
     layer_pooling = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer_pooling)
-    layer_pooling = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}relu6')(layer_pooling)
+    layer_pooling = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}relu{int(relu_max_value)}')(layer_pooling)
     layer_pooling = tf.keras.layers.UpSampling2D(size=upsampling_size_pooling, interpolation='bilinear', name=f'{name_prefix}upsampling')(layer_pooling)
 
     # set the prefix for layers names (output)
@@ -69,7 +69,7 @@ def deeplabv3plus_encoder(layer: tf.keras.layers.Layer, filters: int = 256, dila
     # output layer - apply a pointwise convolution to the previous concatenated layer
     layer_output = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}output-conv')(layer_concat)
     layer_output = tf.keras.layers.BatchNormalization(name=f'{name_prefix}output-batchnorm')(layer_output)
-    layer_output = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}output-relu6')(layer_output)
+    layer_output = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}output-relu{int(relu_max_value)}')(layer_output)
 
     return layer_output
 
@@ -107,7 +107,7 @@ def deeplabv3plus_decoder(layer_encoder: tf.keras.layers.Layer, layer_backbone: 
     # the idea is to sharpen the mask coming from the encoder, but we don't want to give too much weight to the backbone layer, so we reduce the number of channels
     layer_backbone = tf.keras.layers.Conv2D(filters=filters_backbone, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}backbone-conv')(layer_backbone)
     layer_backbone = tf.keras.layers.BatchNormalization(name=f'{name_prefix}backbone-batchnorm')(layer_backbone)
-    layer_backbone = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}backbone-relu6')(layer_backbone)
+    layer_backbone = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}backbone-relu{int(relu_max_value)}')(layer_backbone)
 
     # concatenate the upsampled encoder layer and the backbone layer along channel dimension
     layer_concat = tf.keras.layers.Concatenate(axis=-1, name=f'{name_prefix}concat')([layer_encoder, layer_backbone])
@@ -115,12 +115,12 @@ def deeplabv3plus_decoder(layer_encoder: tf.keras.layers.Layer, layer_backbone: 
     # first refinement step - convolution
     layer = tf.keras.layers.Conv2D(filters=filters_decoder, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}conv')(layer_concat)
     layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}conv-batchnorm')(layer)
-    layer = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}conv-relu6')(layer)
+    layer = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}conv-relu{int(relu_max_value)}')(layer)
 
     # second refinement step - depthwise separable convolution
     layer = tf.keras.layers.SeparableConv2D(filters=filters_decoder, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer)
     layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}sepconv-batchnorm')(layer)
-    layer = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}sepconv-relu6')(layer)
+    layer = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}sepconv-relu{int(relu_max_value)}')(layer)
 
     # create the ouput semantic segmentation mask, where the number of channels are equal to the number of classes
     layer = tf.keras.layers.Conv2D(filters=output_channels, kernel_size=3, padding='same', use_bias=False, name=f'{name_prefix}output-conv')(layer)
@@ -150,7 +150,7 @@ def ssdlite(layer: tf.keras.layers.Layer, filters: int, output_channels: int, na
     """       
     layer = tf.keras.layers.SeparableConv2D(filters=filters, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer)
     layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
-    layer = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}relu6')(layer)   
+    layer = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}relu{int(relu_max_value)}')(layer)   
     layer_output = tf.keras.layers.Reshape(target_shape=(-1, output_channels), name=f'{name_prefix}reshape')(layer)
 
     return layer_output
