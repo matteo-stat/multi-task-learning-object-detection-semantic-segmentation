@@ -751,7 +751,7 @@ class ShuffleNetV2SsdSegBuilder():
         layer_output = ssdseglib.blocks.deeplabv3plus_decoder(
             layer_encoder=layer_input_decoder_from_encoder,
             layer_backbone=layer_input_decoder_from_backbone,
-            filters_backbone=24,
+            filters_backbone=None,
             filters_decoder=256,
             output_height_width=self.input_image_shape[0:2],
             output_channels=self.number_of_classes

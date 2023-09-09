@@ -101,13 +101,14 @@ def deeplabv3plus_decoder(layer_encoder: tf.keras.layers.Layer, layer_backbone: 
 
     # the encoder layer height-width dimensions are upsampled up to the backbone layer height-width dimensions
     upsampling_size_encoder = (int(layer_backbone.shape[1] / layer_encoder.shape[1]), int(layer_backbone.shape[2] / layer_encoder.shape[2]))
-    layer_encoder = tf.keras.layers.UpSampling2D(size=upsampling_size_encoder, interpolation='bilinear', name=f'{name_prefix}-upsampling-encoder-output')(layer_encoder)
+    layer_encoder = tf.keras.layers.UpSampling2D(size=upsampling_size_encoder, interpolation='bilinear', name=f'{name_prefix}upsampling-encoder-output')(layer_encoder)
 
     # reduce the number of channels from the backbone layer using pointwise convolution
     # the idea is to sharpen the mask coming from the encoder, but we don't want to give too much weight to the backbone layer, so we reduce the number of channels
-    layer_backbone = tf.keras.layers.Conv2D(filters=filters_backbone, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}backbone-conv')(layer_backbone)
-    layer_backbone = tf.keras.layers.BatchNormalization(name=f'{name_prefix}backbone-batchnorm')(layer_backbone)
-    layer_backbone = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}backbone-relu{int(relu_max_value)}')(layer_backbone)
+    if filters_backbone is not None:
+        layer_backbone = tf.keras.layers.Conv2D(filters=filters_backbone, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}backbone-conv')(layer_backbone)
+        layer_backbone = tf.keras.layers.BatchNormalization(name=f'{name_prefix}backbone-batchnorm')(layer_backbone)
+        layer_backbone = tf.keras.layers.ReLU(max_value=relu_max_value, name=f'{name_prefix}backbone-relu{int(relu_max_value)}')(layer_backbone)
 
     # concatenate the upsampled encoder layer and the backbone layer along channel dimension
     layer_concat = tf.keras.layers.Concatenate(axis=-1, name=f'{name_prefix}concat')([layer_encoder, layer_backbone])
