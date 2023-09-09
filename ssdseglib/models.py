@@ -654,22 +654,22 @@ class ShuffleNetV2SsdSegBuilder():
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # retrieve all the layers on which the ssd framework for object detection will be applied
         # these feature maps have different shapes, for better handling multi scale objects
-        layer_input_1 = self._layers['backbone-block13-expand-relu6']
-        layer_input_2 = self._layers['backbone-block16-project-batchnorm']
+        layer_input_1 = self._layers['backbone-stage3-block7-reshape-post-channels-shuffle']
+        layer_input_2 = self._layers['backbone-stage4-block3-reshape-post-channels-shuffle']
 
         # add to mobilenetv2 backbone other depthwise separable convolutions to further reduce feature map size
         # these additional feature maps will be inputs for ssd
         self._counter_blocks += 1
-        name_prefix = f'backbone-block{self._counter_blocks}-'
-        layer = tf.keras.layers.SeparableConv2D(filters=320, strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_2)
+        name_prefix = 'backbone-stage5-block1-'
+        layer = tf.keras.layers.SeparableConv2D(filters=self.output_channels_stages[4], strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_2)
         layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
-        layer_input_3 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
+        layer_input_3 = tf.keras.layers.ReLU(name=f'{name_prefix}relu')(layer)
 
         self._counter_blocks += 1
-        name_prefix = f'backbone-block{self._counter_blocks}-'
-        layer = tf.keras.layers.SeparableConv2D(filters=360, strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_3)
+        name_prefix = 'backbone-stage5-block2-'
+        layer = tf.keras.layers.SeparableConv2D(filters=self.output_channels_stages[4], strides=2, kernel_size=3, padding='same', depth_multiplier=1, use_bias=False, name=f'{name_prefix}sepconv')(layer_input_3)
         layer = tf.keras.layers.BatchNormalization(name=f'{name_prefix}batchnorm')(layer)
-        layer_input_4 = tf.keras.layers.ReLU(max_value=6.0, name=f'{name_prefix}relu6')(layer)
+        layer_input_4 = tf.keras.layers.ReLU(name=f'{name_prefix}relu')(layer)
 
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # -> object detection classification
@@ -715,7 +715,7 @@ class ShuffleNetV2SsdSegBuilder():
         # -> semantic segmentation encoder
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # input for encoder it's the backbone layer with output stride 16
-        layer_input_encoder = self._layers['backbone-block13-expand-relu6']
+        layer_input_encoder = self._layers['backbone-stage3-block7-reshape-post-channels-shuffle']
 
         # encoder output it's one of the input for the decoder
         layer_input_decoder_from_encoder = ssdseglib.blocks.deeplabv3plus_encoder(layer=layer_input_encoder, filters=256, dilation_rates=dilation_rates)
@@ -724,7 +724,19 @@ class ShuffleNetV2SsdSegBuilder():
         # -> semantic segmentation decoder
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------        
         # the semantic segmentation decoder use an intermediate feature map for sharpen the output coming from the encoder
-        layer_input_decoder_from_backbone = self._layers['backbone-block3-expand-relu6']
+        # given the architecture of shufflenet-v2, i decided to concatenate two feature maps, with output stride 8 and 4
+        
+        # backbone layer with output stride 4
+        layer_backbone_output_stride_4 = self._layers['backbone-stage1-maxpool']
+        layer_backbone_output_stride_4 = tf.keras.layers.BatchNormalization(name='backbone-output-stride4-batchnorm')(layer_backbone_output_stride_4)
+
+        # backbone layer with output stride 8, upsampled by deconvolution to output stride 4
+        layer_backbone_output_stride_8 = self._layers['backbone-stage2-block3-reshape-post-channels-shuffle']
+        layer_backbone_output_stride_8_upsampled = tf.keras.layers.Conv2DTranspose(filters=self.output_channels_stages[2], kernel_size=3, strides=2, padding='same', use_bias=False, name='backbone-output-stride8-upsampled-deconv')(layer_backbone_output_stride_8)
+        layer_backbone_output_stride_8_upsampled = tf.keras.layers.BatchNormalization(name='backbone-output-stride8-upsampled-batchnorm')(layer_backbone_output_stride_8_upsampled)
+
+        # concatenate
+        layer_input_decoder_from_backbone = tf.keras.layers.Concatenate(name='backbone-intermediate-output-for-mask-decoder')([layer_backbone_output_stride_4, layer_backbone_output_stride_8_upsampled])
 
         # semantic segmentation decoder output (mask)
         layer_output = ssdseglib.blocks.deeplabv3plus_decoder(
