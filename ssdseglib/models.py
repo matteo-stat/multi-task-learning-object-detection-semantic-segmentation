@@ -247,10 +247,10 @@ class MobileNetV2SsdSegBuilder():
         # -> object detection classification
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # object detection classification branches at different feature maps scales
-        layer_labels_1 = ssdseglib.blocks.ssdlite(layer=layer_input_1, filters=self.number_of_boxes_per_point[0]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels1-')
-        layer_labels_2 = ssdseglib.blocks.ssdlite(layer=layer_input_2, filters=self.number_of_boxes_per_point[1]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels2-')
-        layer_labels_3 = ssdseglib.blocks.ssdlite(layer=layer_input_3, filters=self.number_of_boxes_per_point[2]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels3-')
-        layer_labels_4 = ssdseglib.blocks.ssdlite(layer=layer_input_4, filters=self.number_of_boxes_per_point[3]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels4-')
+        layer_labels_1 = ssdseglib.blocks.ssdlite(layer=layer_input_1, filters=self.number_of_boxes_per_point[0]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels1-', relu_max_value=6.0)
+        layer_labels_2 = ssdseglib.blocks.ssdlite(layer=layer_input_2, filters=self.number_of_boxes_per_point[1]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels2-', relu_max_value=6.0)
+        layer_labels_3 = ssdseglib.blocks.ssdlite(layer=layer_input_3, filters=self.number_of_boxes_per_point[2]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels3-', relu_max_value=6.0)
+        layer_labels_4 = ssdseglib.blocks.ssdlite(layer=layer_input_4, filters=self.number_of_boxes_per_point[3]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels4-', relu_max_value=6.0)
 
         # concatenate along boxes dimension
         layer_labels_concat = tf.keras.layers.Concatenate(axis=1, name=f'labels-concat')([layer_labels_1, layer_labels_2, layer_labels_3, layer_labels_4])
@@ -262,10 +262,10 @@ class MobileNetV2SsdSegBuilder():
         # -> object detection regression
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # object detection regression branches at different feature maps scales
-        layer_boxes_1 = ssdseglib.blocks.ssdlite(layer=layer_input_1, filters=self.number_of_boxes_per_point[0]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes1-')
-        layer_boxes_2 = ssdseglib.blocks.ssdlite(layer=layer_input_2, filters=self.number_of_boxes_per_point[1]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes2-')
-        layer_boxes_3 = ssdseglib.blocks.ssdlite(layer=layer_input_3, filters=self.number_of_boxes_per_point[2]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes3-')
-        layer_boxes_4 = ssdseglib.blocks.ssdlite(layer=layer_input_4, filters=self.number_of_boxes_per_point[3]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes4-')
+        layer_boxes_1 = ssdseglib.blocks.ssdlite(layer=layer_input_1, filters=self.number_of_boxes_per_point[0]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes1-', relu_max_value=6.0)
+        layer_boxes_2 = ssdseglib.blocks.ssdlite(layer=layer_input_2, filters=self.number_of_boxes_per_point[1]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes2-', relu_max_value=6.0)
+        layer_boxes_3 = ssdseglib.blocks.ssdlite(layer=layer_input_3, filters=self.number_of_boxes_per_point[2]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes3-', relu_max_value=6.0)
+        layer_boxes_4 = ssdseglib.blocks.ssdlite(layer=layer_input_4, filters=self.number_of_boxes_per_point[3]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='boxes4-', relu_max_value=6.0)
 
         # concatenate along boxes dimension
         layer_output_boxes = tf.keras.layers.Concatenate(axis=1, name=f'output-boxes')([layer_boxes_1, layer_boxes_2, layer_boxes_3, layer_boxes_4])
@@ -290,7 +290,7 @@ class MobileNetV2SsdSegBuilder():
         layer_input_encoder = self._layers['backbone-block13-expand-relu6']
 
         # encoder output it's one of the input for the decoder
-        layer_input_decoder_from_encoder = ssdseglib.blocks.deeplabv3plus_encoder(layer=layer_input_encoder, filters=256, dilation_rates=dilation_rates)
+        layer_input_decoder_from_encoder = ssdseglib.blocks.deeplabv3plus_encoder(layer=layer_input_encoder, filters=256, dilation_rates=dilation_rates, relu_max_value=6.0)
 
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # -> semantic segmentation decoder
@@ -305,7 +305,8 @@ class MobileNetV2SsdSegBuilder():
             filters_backbone=48,
             filters_decoder=256,
             output_height_width=self.input_image_shape[0:2],
-            output_channels=self.number_of_classes
+            output_channels=self.number_of_classes,
+            relu_max_value=6.0
         )
 
         return layer_output
@@ -531,7 +532,7 @@ class ShuffleNetV2SsdSegBuilder():
             branch_right = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}branch-right-conv1')(branch_right)
         else:
             branch_right = tf.keras.layers.Conv2D(filters=filters, kernel_size=1, padding='same', use_bias=False, name=f'{name_prefix}branch-right-conv1')(layer)
-            
+
         branch_right = tf.keras.layers.BatchNormalization(name=f'{name_prefix}branch-right-batchnorm1')(branch_right)
         branch_right = tf.keras.layers.ReLU(name=f'{name_prefix}branch-right-relu1')(branch_right)
 
