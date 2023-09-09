@@ -1,4 +1,5 @@
 import tensorflow as tf
+from typing import Union, List
 
 @tf.keras.saving.register_keras_serializable(name='DecodeBoxesCentroidsOffsets')
 class DecodeBoxesCentroidsOffsets(tf.keras.layers.Layer):
@@ -209,4 +210,35 @@ class SegmentationSuppression(tf.keras.layers.Layer):
         probabilities_suppressed = tf.math.multiply(labels_probabilities, is_class_segmented)
         
         return probabilities_suppressed
+
+@tf.keras.saving.register_keras_serializable(name='Split')
+class Split(tf.keras.layers.Layer):
+    def __init__(self, num_or_size_splits: Union[int, List[int]], axis: int, num: int = None, **kwargs):
+        """
+        splits a tensor value into a list of sub tensors\n
+        if num_or_size_splits is an int, then it splits value along the dimension axis into num_or_size_splits smaller tensors, this requires that value.shape[axis] is divisible by num_or_size_splits\n
+        if num_or_size_splits is a 1-D Tensor (or list), then value is split into len(num_or_size_splits) elements\n
+        the shape of the i-th element has the same size as the value except along dimension axis where the size is num_or_size_splits[i]
+            
+        Args:
+            num_or_size_splits (Union[int, List[int]]): either an int indicating the number of splits along axis or a 1-d integer tensor or python list containing the sizes of each output tensor along axis. if an int, then it must evenly divide value.shape[axis], otherwise the sum of sizes along the split axis must match that of the value
+            axis (int): an int or scalar int32 tensor, the dimension along which to split. must be in the range [-rank(value), rank(value)).
+            num (int, optional): optional, an int, used to specify the number of outputs when it cannot be inferred from the shape of size_splits. Defaults to None.
+        """
+        # init from parent class
+        super().__init__(**kwargs)
+        
+        # set attributes
+        self.num_or_size_splits = num_or_size_splits
+        self.axis = axis
+        self.num = num
+
+    def call(self, value: tf.Tensor) -> List[tf.Tensor]:
+        return tf.split(value, num_or_size_splits=self.num_or_size_splits, axis=self.axis, num=self.num)
    
+    def get_config(self):
+        return {
+            'num_or_size_split': self.num_or_size_split,
+            'axis': self.axis,
+            'num': self.num
+        }
