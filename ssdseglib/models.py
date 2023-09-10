@@ -247,10 +247,10 @@ class MobileNetV2SsdSegBuilder():
         # -> object detection classification
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # object detection classification branches at different feature maps scales
-        layer_labels_1 = ssdseglib.blocks.ssdlite(layer=layer_input_1, filters=self.number_of_boxes_per_point[0]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels1-', relu_max_value=6.0)
-        layer_labels_2 = ssdseglib.blocks.ssdlite(layer=layer_input_2, filters=self.number_of_boxes_per_point[1]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels2-', relu_max_value=6.0)
-        layer_labels_3 = ssdseglib.blocks.ssdlite(layer=layer_input_3, filters=self.number_of_boxes_per_point[2]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels3-', relu_max_value=6.0)
-        layer_labels_4 = ssdseglib.blocks.ssdlite(layer=layer_input_4, filters=self.number_of_boxes_per_point[3]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels4-', relu_max_value=6.0)
+        layer_labels_1 = ssdseglib.blocks.ssdlite(layer=layer_input_1, filters=self.number_of_boxes_per_point[0]*4, output_channels=4, name_prefix='labels1-', relu_max_value=6.0)
+        layer_labels_2 = ssdseglib.blocks.ssdlite(layer=layer_input_2, filters=self.number_of_boxes_per_point[1]*4, output_channels=4, name_prefix='labels2-', relu_max_value=6.0)
+        layer_labels_3 = ssdseglib.blocks.ssdlite(layer=layer_input_3, filters=self.number_of_boxes_per_point[2]*4, output_channels=4, name_prefix='labels3-', relu_max_value=6.0)
+        layer_labels_4 = ssdseglib.blocks.ssdlite(layer=layer_input_4, filters=self.number_of_boxes_per_point[3]*4, output_channels=4, name_prefix='labels4-', relu_max_value=6.0)
 
         # concatenate along boxes dimension
         layer_labels_concat = tf.keras.layers.Concatenate(axis=1, name=f'labels-concat')([layer_labels_1, layer_labels_2, layer_labels_3, layer_labels_4])
@@ -682,10 +682,10 @@ class ShuffleNetV2SsdSegBuilder():
         # -> object detection classification
         # ----------------------------------------------------------------------------------------------------------------------------------------------------------
         # object detection classification branches at different feature maps scales
-        layer_labels_1 = ssdseglib.blocks.ssdlite(layer=layer_input_1, filters=self.number_of_boxes_per_point[0]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels1-')
-        layer_labels_2 = ssdseglib.blocks.ssdlite(layer=layer_input_2, filters=self.number_of_boxes_per_point[1]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels2-')
-        layer_labels_3 = ssdseglib.blocks.ssdlite(layer=layer_input_3, filters=self.number_of_boxes_per_point[2]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels3-')
-        layer_labels_4 = ssdseglib.blocks.ssdlite(layer=layer_input_4, filters=self.number_of_boxes_per_point[3]*self.number_of_classes, output_channels=self.number_of_classes, name_prefix='labels4-')
+        layer_labels_1 = ssdseglib.blocks.ssdlite(layer=layer_input_1, filters=self.number_of_boxes_per_point[0]*4, output_channels=4, name_prefix='labels1-')
+        layer_labels_2 = ssdseglib.blocks.ssdlite(layer=layer_input_2, filters=self.number_of_boxes_per_point[1]*4, output_channels=4, name_prefix='labels2-')
+        layer_labels_3 = ssdseglib.blocks.ssdlite(layer=layer_input_3, filters=self.number_of_boxes_per_point[2]*4, output_channels=4, name_prefix='labels3-')
+        layer_labels_4 = ssdseglib.blocks.ssdlite(layer=layer_input_4, filters=self.number_of_boxes_per_point[3]*4, output_channels=4, name_prefix='labels4-')
 
         # concatenate along boxes dimension
         layer_labels_concat = tf.keras.layers.Concatenate(axis=1, name=f'labels-concat')([layer_labels_1, layer_labels_2, layer_labels_3, layer_labels_4])
