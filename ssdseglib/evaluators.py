@@ -190,8 +190,7 @@ def jaccard_iou_semantic_segmentation(
         masks_pred_batch: np.ndarray,
         path_files_masks: List[str],
         labels_codes: List[int],
-        label_code_background: int,
-        soft_jaccard_iou: bool = True
+        label_code_background: int
     ) -> Dict[str, float]:
     """
     calculate the jaccard iou metric for each class for a semantic segmnetation problem\n
@@ -210,12 +209,7 @@ def jaccard_iou_semantic_segmentation(
 
     # number of classes
     num_classes = len(labels_codes)
-
-    # convert probabilities to classification if output metric it's hard jaccard iou 
-    if not soft_jaccard_iou:
-        masks_pred_batch = np.argmax(masks_pred_batch, axis=-1)
-        masks_pred_batch = np.eye(num_classes, dtype=np.float32)[masks_pred_batch]
-
+    
     # read all ground truth masks
     masks_true_batch = []
     for path_file_mask in path_files_masks:
