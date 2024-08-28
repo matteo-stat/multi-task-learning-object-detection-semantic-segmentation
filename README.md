@@ -4,8 +4,6 @@
 
 Hey there! 🎉 This repo is all about a fun and challenging project I worked on for a computer vision university exam during 2023. The goal was to build a network that can handle both object detection and semantic segmentation at the same time. I’ve put together a lightweight solution that could be great for real-time mobile apps.
 
-## What’s Inside?
-
 ### The Goal
 
 I wanted to create a network that could do two things:
