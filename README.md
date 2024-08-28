@@ -16,7 +16,7 @@ To keep things light and fast, I used MobileNetV2 and even tried ShuffleNetV2 (t
 
 - **Built from Scratch**: Everything, including the backbone networks and detection/segmentation heads, were coded from scratch using NumPy and TensorFlow.
 - **Compact and Efficient**: The final network has around 4M parameters, which is pretty small and efficient for real-time tasks.
-- **Custom Architectures**: Implemented MobileNetV2 and ShuffleNetV2 on my own (as said above I tested only MobileNetV2, hope ShuffleNetV2 works too).
+- **Mobile Architectures**: Implemented MobileNetV2 and ShuffleNetV2 layer by layer from scratch (as said above I tested only MobileNetV2, hope ShuffleNetV2 works too).
 - **Training**: Trained the models on a proprietary dataset from my company with three classes: people, forklifts, and rails.
 
 ### Results
