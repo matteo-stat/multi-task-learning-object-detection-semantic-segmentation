@@ -27,7 +27,7 @@ The models didn’t break any records, but considering the small dataset and the
 
 This project was.. challenging! I learned a lot about building and training models from scratch and got a better understanding of how to make efficient, real-time computer vision solutions. It wasn't easy but seeing decent boxes and segmentation masks coming out from the network was super rewarding.
 
-## Why and this Repo and What’s inside
+## Why What’s inside this Repo
 
 I hope this repo can help other people getting to know easier architectures for performing object detection and semantic segmentation
 
